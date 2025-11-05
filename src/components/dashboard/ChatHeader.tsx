@@ -1,29 +1,22 @@
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import type { Conversation } from "@/components/dashboard/ChatSidebar";
+import SettingsDialog from "@/components/dashboard/SettingDialog";
 
 interface ChatHeaderProps {
-  selectedChat: Conversation | null;
+  selectedChat: any | null;
 }
 
 export default function ChatHeader({ selectedChat }: ChatHeaderProps) {
   const { theme, setTheme } = useTheme();
-
   return (
     <header className="flex h-16 items-center gap-4 border-b px-4 md:px-6 bg-card">
       <SidebarTrigger className="-ml-1 size-10 hover:bg-accent rounded-xl" />
       <Separator orientation="vertical" className="h-6" />
       {selectedChat && (
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <Avatar className="size-9 border-2 border-background">
-            <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
-              {selectedChat.avatar}
-            </AvatarFallback>
-          </Avatar>
           <div className="min-w-0">
             <h2 className="font-semibold text-sm truncate">
               {selectedChat.title}
@@ -33,6 +26,7 @@ export default function ChatHeader({ selectedChat }: ChatHeaderProps) {
         </div>
       )}
       {!selectedChat && <div className="flex-1" />}
+      <SettingsDialog />
       <Button
         variant="ghost"
         size="icon"
