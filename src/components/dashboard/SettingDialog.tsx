@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { useForm } from "@tanstack/react-form"
+import { useState } from "react";
+import { useForm } from "@tanstack/react-form";
 import {
   Dialog,
   DialogContent,
@@ -7,25 +7,25 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { SettingsIcon, Plus, Trash2 } from "lucide-react"
-import { getSettings, saveSettings, type Settings } from "@/schemas/ChatStorage"
-import { Textarea } from "@/components/ui/textarea"
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SettingsIcon, Plus, Trash2 } from "lucide-react";
+import { getSettings, saveSettings, type Settings } from "@/lib/settings";
+import { Textarea } from "@/components/ui/textarea";
 
 type SettingsFormValues = {
-  openRouterKey: string
-  vercelAiGateway: string
-  systemPrompts: string[]
-}
+  openRouterKey: string;
+  vercelAiGateway: string;
+  systemPrompts: string[];
+};
 
 export default function SettingsDialog() {
-  const [open, setOpen] = useState(false)
-  const [newPrompt, setNewPrompt] = useState("")
+  const [open, setOpen] = useState(false);
+  const [newPrompt, setNewPrompt] = useState("");
 
-  const initialSettings = getSettings()
+  const initialSettings = getSettings();
 
   const form = useForm({
     defaultValues: {
@@ -34,32 +34,39 @@ export default function SettingsDialog() {
       systemPrompts: initialSettings.systemPrompts || [],
     } as SettingsFormValues,
     onSubmit: async ({ value }) => {
-      console.log("Form submitted with values:", value)
-      saveSettings(value as Settings)
-      setOpen(false)
+      console.log("Form submitted with values:", value);
+      saveSettings(value as Settings);
+      setOpen(false);
     },
-  })
+  });
 
   const addPrompt = () => {
     if (newPrompt.trim()) {
-      const currentPrompts = form.getFieldValue("systemPrompts")
-      form.setFieldValue("systemPrompts", [...currentPrompts, newPrompt.trim()])
-      setNewPrompt("")
+      const currentPrompts = form.getFieldValue("systemPrompts");
+      form.setFieldValue("systemPrompts", [
+        ...currentPrompts,
+        newPrompt.trim(),
+      ]);
+      setNewPrompt("");
     }
-  }
+  };
 
   const removePrompt = (index: number) => {
-    const currentPrompts = form.getFieldValue("systemPrompts")
+    const currentPrompts = form.getFieldValue("systemPrompts");
     form.setFieldValue(
       "systemPrompts",
-      currentPrompts.filter((_, i) => i !== index),
-    )
-  }
+      currentPrompts.filter((_, i) => i !== index)
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-xl size-10 shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-xl size-10 shrink-0"
+        >
           <SettingsIcon className="size-5" />
           <span className="sr-only">Settings</span>
         </Button>
@@ -67,14 +74,16 @@ export default function SettingsDialog() {
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">Settings</DialogTitle>
-          <DialogDescription>Configure your API keys and system prompts, innit.</DialogDescription>
+          <DialogDescription>
+            Configure your API keys and system prompts, innit.
+          </DialogDescription>
         </DialogHeader>
 
         <form
           onSubmit={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            form.handleSubmit()
+            e.preventDefault();
+            e.stopPropagation();
+            form.handleSubmit();
           }}
           className="space-y-6"
         >
@@ -88,7 +97,10 @@ export default function SettingsDialog() {
               <form.Field name="openRouterKey">
                 {(field) => (
                   <div className="space-y-2">
-                    <label htmlFor={field.name} className="text-sm font-medium leading-none">
+                    <label
+                      htmlFor={field.name}
+                      className="text-sm font-medium leading-none"
+                    >
                       OpenRouter API Key
                     </label>
                     <Input
@@ -110,7 +122,10 @@ export default function SettingsDialog() {
               <form.Field name="vercelAiGateway">
                 {(field) => (
                   <div className="space-y-2">
-                    <label htmlFor={field.name} className="text-sm font-medium leading-none">
+                    <label
+                      htmlFor={field.name}
+                      className="text-sm font-medium leading-none"
+                    >
                       Vercel AI Gateway
                     </label>
                     <Input
@@ -131,7 +146,9 @@ export default function SettingsDialog() {
               <form.Field name="systemPrompts">
                 {(field) => (
                   <div className="space-y-3">
-                    <label className="text-sm font-medium leading-none">System Prompts</label>
+                    <label className="text-sm font-medium leading-none">
+                      System Prompts
+                    </label>
                     <p className="text-sm text-muted-foreground">
                       Store your custom system prompts for quick access.
                     </p>
@@ -144,32 +161,44 @@ export default function SettingsDialog() {
                         className="min-h-[80px]"
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && e.ctrlKey) {
-                            e.preventDefault()
-                            addPrompt()
+                            e.preventDefault();
+                            addPrompt();
                           }
                         }}
                       />
-                      <Button type="button" onClick={addPrompt} size="icon" className="shrink-0">
+                      <Button
+                        type="button"
+                        onClick={addPrompt}
+                        size="icon"
+                        className="shrink-0"
+                      >
                         <Plus className="size-4" />
                       </Button>
                     </div>
 
                     {field.state.value && field.state.value.length > 0 && (
                       <div className="space-y-2 mt-4">
-                        {field.state.value.map((prompt: string, index: number) => (
-                          <div key={index} className="flex items-start gap-2 p-3 rounded-lg border bg-muted/50">
-                            <p className="flex-1 text-sm leading-relaxed">{prompt}</p>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="size-8 shrink-0 text-destructive hover:text-destructive"
-                              onClick={() => removePrompt(index)}
+                        {field.state.value.map(
+                          (prompt: string, index: number) => (
+                            <div
+                              key={index}
+                              className="flex items-start gap-2 p-3 rounded-lg border bg-muted/50"
                             >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </div>
-                        ))}
+                              <p className="flex-1 text-sm leading-relaxed">
+                                {prompt}
+                              </p>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 shrink-0 text-destructive hover:text-destructive"
+                                onClick={() => removePrompt(index)}
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
+                          )
+                        )}
                       </div>
                     )}
                   </div>
@@ -179,7 +208,9 @@ export default function SettingsDialog() {
 
             <TabsContent value="tools" className="space-y-4 mt-4">
               <div className="text-center py-12">
-                <p className="text-muted-foreground text-sm">Additional tools coming soon, innit! 🚀</p>
+                <p className="text-muted-foreground text-sm">
+                  Additional tools coming soon, innit! 🚀
+                </p>
                 <p className="text-muted-foreground text-xs mt-2">
                   We're cooking up some proper features for you.
                 </p>
@@ -188,10 +219,16 @@ export default function SettingsDialog() {
           </Tabs>
 
           <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
               Cancel
             </Button>
-            <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
+            <form.Subscribe
+              selector={(state) => [state.canSubmit, state.isSubmitting]}
+            >
               {([canSubmit, isSubmitting]) => (
                 <Button type="submit" disabled={!canSubmit}>
                   {isSubmitting ? "Saving..." : "Save Settings"}
@@ -202,5 +239,5 @@ export default function SettingsDialog() {
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

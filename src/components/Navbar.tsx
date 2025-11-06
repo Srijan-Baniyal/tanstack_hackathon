@@ -1,4 +1,5 @@
 import ThemeSwitcher from "@/components/ThemeSwitcher";
+import { Link } from "@tanstack/react-router";
 
 export default function Navbar() {
   return (
@@ -9,11 +10,9 @@ export default function Navbar() {
             {/* Left side - Logo/Name */}
             <div className="flex items-center">
               <span className="text-foreground font-bold text-xl">
-                Mesh Mind
+                <Link to="/">Mesh Mind</Link>
               </span>
             </div>
-
-            {/* Right side - Navigation and Controls */}
             <div className="flex items-center space-x-4">
               <ThemeSwitcher />
             </div>

@@ -67,7 +67,7 @@ export default function HeroSection() {
 
         {/* Headline */}
         <h1 className="mb-6 text-balance font-sans text-5xl font-semibold tracking-tight text-foreground lg:text-7xl">
-          PolyMind — One Question.{" "}
+          MeshMind — One Question.{" "}
           <span className="text-muted-foreground">Many Minds.</span>
         </h1>
 

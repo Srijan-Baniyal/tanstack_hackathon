@@ -72,9 +72,7 @@ export function HoverBorderGradient({
         {children}
       </div>
       <motion.div
-        className={cn(
-          "absolute inset-0 z-0 overflow-hidden rounded-[inherit]"
-        )}
+        className={cn("absolute inset-0 z-0 overflow-hidden rounded-[inherit]")}
         style={{
           filter: "blur(2px)",
           position: "absolute",
@@ -89,7 +87,7 @@ export function HoverBorderGradient({
         }}
         transition={{ ease: "linear", duration: duration ?? 1 }}
       />
-  <div className="absolute inset-[2px] z-1 rounded-[inherit] bg-background/90 dark:bg-background/40" />
+      <div className="absolute inset-[2px] z-1 rounded-[inherit] bg-background/90 dark:bg-background/40" />
     </Tag>
   );
 }

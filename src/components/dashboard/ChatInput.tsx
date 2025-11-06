@@ -4,7 +4,7 @@ import { Paperclip, Smile, Send } from "lucide-react";
 import { useState } from "react";
 
 interface ChatInputProps {
-  onSendMessage?: (message: string) => void;
+  onSendMessage?: (message: string) => void | Promise<void>;
   disabled?: boolean;
 }
 

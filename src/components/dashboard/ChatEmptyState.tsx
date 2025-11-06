@@ -1,4 +1,4 @@
-import { MessageSquare } from "lucide-react"
+import { MessageSquare } from "lucide-react";
 
 export default function ChatEmptyState() {
   return (
@@ -14,9 +14,10 @@ export default function ChatEmptyState() {
           Select a conversation
         </h3>
         <p className="text-sm md:text-base text-muted-foreground text-balance leading-relaxed">
-          Choose a chat from the sidebar to start messaging or create a new conversation
+          Choose a chat from the sidebar to start messaging or create a new
+          conversation
         </p>
       </div>
     </div>
-  )
+  );
 }

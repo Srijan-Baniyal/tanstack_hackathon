@@ -1,5 +1,5 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import type { Chat } from "@/schemas/ChatStorage";
+import type { Chat } from "@/lib/chat-storage";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
