@@ -63,7 +63,7 @@ const clearPersisted = () => {
 };
 
 const getAuthRef = (name: string, fallback: string) => {
-  const authModule = (api as Record<string, any> | undefined)?.auth;
+  const authModule = (api as Record<string, any> | undefined)?.authActions;
   const reference = authModule?.[name];
   return reference ?? fallback;
 };
@@ -85,8 +85,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
-    const meRef = getAuthRef("me", "auth:me");
-    const refreshRef = getAuthRef("refreshSession", "auth:refreshSession");
+    const meRef = getAuthRef("me", "authActions:me");
+    const refreshRef = getAuthRef("refreshSession", "authActions:refreshSession");
 
     try {
       const refreshed = await convexClient.action(meRef, {
@@ -117,7 +117,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signIn: async ({ email, password }) => {
-    const signInRef = getAuthRef("signIn", "auth:signIn");
+    const signInRef = getAuthRef("signIn", "authActions:signIn");
     set({ isLoading: true });
     try {
       const response = (await convexClient.action(signInRef, {
@@ -133,7 +133,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signUp: async ({ email, password, fullName }) => {
-    const signUpRef = getAuthRef("signUp", "auth:signUp");
+    const signUpRef = getAuthRef("signUp", "authActions:signUp");
     set({ isLoading: true });
     try {
       const response = (await convexClient.action(signUpRef, {
@@ -157,7 +157,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   refresh: async () => {
     const tokens = get().tokens;
     if (!tokens) return;
-    const refreshRef = getAuthRef("refreshSession", "auth:refreshSession");
+    const refreshRef = getAuthRef("refreshSession", "authActions:refreshSession");
     const refreshed = (await convexClient.action(refreshRef, {
       refreshToken: tokens.refreshToken,
     })) as { tokens: TokenBundle };
@@ -172,13 +172,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   requestPasswordReset: async (email) => {
     const resetRef = getAuthRef(
       "requestPasswordReset",
-      "auth:requestPasswordReset"
+      "authActions:requestPasswordReset"
     );
     await convexClient.action(resetRef, { email });
   },
 
   resetPassword: async ({ token, password }) => {
-    const resetRef = getAuthRef("resetPassword", "auth:resetPassword");
+    const resetRef = getAuthRef("resetPassword", "authActions:resetPassword");
     await convexClient.action(resetRef, { token, password });
   },
 }));

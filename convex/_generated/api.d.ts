@@ -8,6 +8,14 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
+import type * as authActions from "../authActions.js";
+import type * as chats from "../chats.js";
+import type * as chatsInternal from "../chatsInternal.js";
+import type * as email from "../email.js";
+import type * as password from "../password.js";
+import type * as token from "../token.js";
+
 import type {
   ApiFromModules,
   FilterApi,
@@ -22,7 +30,15 @@ import type {
  * const myFunctionReference = api.myModule.myFunction;
  * ```
  */
-declare const fullApi: ApiFromModules<{}>;
+declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
+  authActions: typeof authActions;
+  chats: typeof chats;
+  chatsInternal: typeof chatsInternal;
+  email: typeof email;
+  password: typeof password;
+  token: typeof token;
+}>;
 declare const fullApiWithMounts: typeof fullApi;
 
 export declare const api: FilterApi<
