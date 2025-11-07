@@ -1,12 +1,14 @@
-"use client";
-
 import { Button } from "@/components/ui/button";
 import { HoverBorderGradient } from "@/components/ui/hover-border-gradient";
 import { ArrowRight, GitBranch } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { useAuthStore } from "@/zustand/AuthStore";
 
 export default function HeroSection() {
   const [isVisible, setIsVisible] = useState(false);
+  const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsVisible(true), 100);
@@ -100,16 +102,13 @@ export default function HeroSection() {
 
         {/* CTAs */}
         <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-          <Button size="lg" className="group gap-2 px-8">
-            Try a query
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-          </Button>
-          <Button
-            size="lg"
-            variant="ghost"
-            className="gap-2 px-8 bg-background/20 backdrop-blur-xl backdrop-saturate-150 backdrop-brightness-110 border border-white/10 shadow-2xl shadow-black/20"
+          <Button 
+            size="lg" 
+            className="group gap-2 px-8" 
+            onClick={() => navigate({ to: user ? "/dashboard" : "/signinandsignup" })}
           >
-            View architecture
+            Get Started
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </Button>
         </div>
 

@@ -1,4 +1,5 @@
 "use node";
+
 import { action } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { hashPassword, verifyPassword } from "./password";
@@ -39,6 +40,8 @@ const buildTokens = (payload: TokenPayload) => ({
   refreshToken: createRefreshToken(payload),
 });
 
+type PublicAction = ReturnType<typeof action>;
+
 const assertPasswordStrength = (password: string) => {
   if (password.length < 8) {
     throw new ConvexError("Password must be at least 8 characters long.");
@@ -50,7 +53,7 @@ const assertPasswordStrength = (password: string) => {
   }
 };
 
-export const signUp = action({
+export const signUp: PublicAction = action({
   args: {
     email: v.string(),
     password: v.string(),
@@ -108,7 +111,7 @@ export const signUp = action({
   },
 });
 
-export const signIn = action({
+export const signIn: PublicAction = action({
   args: {
     email: v.string(),
     password: v.string(),
@@ -139,35 +142,60 @@ export const signIn = action({
   },
 });
 
-export const refreshSession = action({
+export const refreshSession: PublicAction = action({
   args: {
     refreshToken: v.string(),
   },
   handler: async (_ctx, args) => {
-    const payload = verifyRefreshToken(args.refreshToken);
-    return {
-      tokens: buildTokens(payload),
-    };
+    try {
+      const payload = verifyRefreshToken(args.refreshToken);
+      // Remove JWT metadata fields before creating new tokens
+      const cleanPayload: TokenPayload = {
+        userId: payload.userId,
+        uuid: payload.uuid,
+        email: payload.email,
+      };
+      return {
+        tokens: buildTokens(cleanPayload),
+      };
+    } catch (error: any) {
+      if (error.name === "TokenExpiredError") {
+        throw new ConvexError("Refresh token expired. Please sign in again.");
+      }
+      throw new ConvexError("Invalid refresh token.");
+    }
   },
 });
 
-export const me = action({
+export const me: PublicAction = action({
   args: {
     accessToken: v.string(),
   },
   handler: async (ctx, args) => {
-    const payload = verifyAccessToken(args.accessToken);
-    const user = await ctx.runQuery(internal.auth.internalGetUserByIdString, {
-      userId: payload.userId,
-    });
-    if (!user) {
-      throw new ConvexError("User not found.");
+    try {
+      const payload = verifyAccessToken(args.accessToken);
+      const user = await ctx.runQuery(internal.auth.internalGetUserByIdString, {
+        userId: payload.userId,
+      });
+      if (!user) {
+        throw new ConvexError("User not found.");
+      }
+      return sanitizeUser(user);
+    } catch (error: any) {
+      if (error.name === "TokenExpiredError") {
+        throw new ConvexError(
+          "Access token expired. Please refresh your session."
+        );
+      }
+      if (error.name === "JsonWebTokenError") {
+        throw new ConvexError("Invalid access token.");
+      }
+      throw error;
     }
-    return sanitizeUser(user);
   },
 });
 
-export const requestPasswordReset = action({
+export const requestPasswordReset: PublicAction = action({
   args: {
     email: v.string(),
   },
@@ -192,16 +220,19 @@ export const requestPasswordReset = action({
   },
 });
 
-export const resetPassword = action({
+export const resetPassword: PublicAction = action({
   args: {
     token: v.string(),
     password: v.string(),
   },
   handler: async (ctx, args) => {
     assertPasswordStrength(args.password);
-    const record = await ctx.runQuery(internal.auth.internalGetUserByResetToken, {
-      resetToken: args.token,
-    });
+    const record = await ctx.runQuery(
+      internal.auth.internalGetUserByResetToken,
+      {
+        resetToken: args.token,
+      }
+    );
     if (!record) {
       throw new ConvexError("Invalid or expired reset token.");
     }
@@ -214,7 +245,106 @@ export const resetPassword = action({
   },
 });
 
-export const upsertUserKeys = action({
+export const updateProfile: PublicAction = action({
+  args: {
+    accessToken: v.string(),
+    fullName: v.string(),
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const payload = verifyAccessToken(args.accessToken);
+    const userId = payload.userId as Id<"users">;
+    const fullName = args.fullName.trim();
+    if (!fullName) {
+      throw new ConvexError("Full name is required.");
+    }
+
+    const email = normalizeEmail(args.email);
+    const existing = await ctx.runQuery(internal.auth.internalGetUserByEmail, {
+      email,
+    });
+    if (existing && existing._id !== userId) {
+      throw new ConvexError("Another account already uses this email.");
+    }
+
+    await ctx.runMutation(internal.auth.internalUpdateUserProfile, {
+      userId,
+      email,
+      fullName,
+      timestamp: Date.now(),
+    });
+
+    const user = await ctx.runQuery(internal.auth.internalGetUserById, {
+      userId,
+    });
+    if (!user) {
+      throw new ConvexError("User not found.");
+    }
+
+    const tokens = buildTokens({
+      userId: userId as string,
+      uuid: user.uuid,
+      email: user.email,
+    });
+
+    return {
+      user: sanitizeUser(user),
+      tokens,
+    };
+  },
+});
+
+export const changePassword: PublicAction = action({
+  args: {
+    accessToken: v.string(),
+    currentPassword: v.string(),
+    newPassword: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const payload = verifyAccessToken(args.accessToken);
+    const userId = payload.userId as Id<"users">;
+
+    const user = await ctx.runQuery(internal.auth.internalGetUserById, {
+      userId,
+    });
+    if (!user) {
+      throw new ConvexError("User not found.");
+    }
+
+    const valid = await verifyPassword(args.currentPassword, user.passwordHash);
+    if (!valid) {
+      throw new ConvexError("Current password is incorrect.");
+    }
+
+    if (args.currentPassword === args.newPassword) {
+      throw new ConvexError("New password must be different.");
+    }
+
+    assertPasswordStrength(args.newPassword);
+    const passwordHash = await hashPassword(args.newPassword);
+
+    await ctx.runMutation(internal.auth.internalUpdatePassword, {
+      userId,
+      passwordHash,
+    });
+  },
+});
+
+export const deleteAccount: PublicAction = action({
+  args: {
+    accessToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const payload = verifyAccessToken(args.accessToken);
+    const userId = payload.userId as Id<"users">;
+
+    await ctx.runMutation(internal.auth.internalDeleteUserCascade, {
+      userId,
+    });
+  },
+});
+
+export const upsertUserKeys: PublicAction = action({
   args: {
     accessToken: v.string(),
     keys: v.object({
@@ -232,26 +362,44 @@ export const upsertUserKeys = action({
     }),
   },
   handler: async (ctx, args) => {
-    const payload = verifyAccessToken(args.accessToken);
-    const userId = payload.userId as Id<"users">;
-    const timestamp = Date.now();
-    await ctx.runMutation(internal.auth.internalUpdateKeys, {
-      userId,
-      keys: args.keys,
-      timestamp,
-    });
+    try {
+      const payload = verifyAccessToken(args.accessToken);
+      const userId = payload.userId as Id<"users">;
+      const timestamp = Date.now();
+      await ctx.runMutation(internal.auth.internalUpdateKeys, {
+        userId,
+        keys: args.keys,
+        timestamp,
+      });
+    } catch (error: any) {
+      if (error.name === "TokenExpiredError") {
+        throw new ConvexError(
+          "Access token expired. Please refresh your session."
+        );
+      }
+      throw error;
+    }
   },
 });
 
-export const getUserKeys = action({
+export const getUserKeys: PublicAction = action({
   args: {
     accessToken: v.string(),
   },
   handler: async (ctx, args) => {
-    const payload = verifyAccessToken(args.accessToken);
-    const keys = await ctx.runQuery(internal.auth.internalGetKeysByUserId, {
-      userId: payload.userId as Id<"users">,
-    });
-    return keys;
+    try {
+      const payload = verifyAccessToken(args.accessToken);
+      const keys = await ctx.runQuery(internal.auth.internalGetKeysByUserId, {
+        userId: payload.userId as Id<"users">,
+      });
+      return keys;
+    } catch (error: any) {
+      if (error.name === "TokenExpiredError") {
+        throw new ConvexError(
+          "Access token expired. Please refresh your session."
+        );
+      }
+      throw error;
+    }
   },
 });

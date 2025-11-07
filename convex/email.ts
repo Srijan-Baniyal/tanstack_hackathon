@@ -1,8 +1,11 @@
 "use node";
+
 import nodemailer from "nodemailer";
 
 const optionalEnv = (name: string): string | null => {
-  const value = process.env[name as keyof typeof process.env] as string | undefined;
+  const value = process.env[name as keyof typeof process.env] as
+    | string
+    | undefined;
   if (!value) return null;
   return value;
 };

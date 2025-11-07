@@ -31,6 +31,12 @@ type AuthState = {
   refresh: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   resetPassword: (params: { token: string; password: string }) => Promise<void>;
+  updateProfile: (params: { fullName: string; email: string }) => Promise<void>;
+  changePassword: (params: {
+    currentPassword: string;
+    newPassword: string;
+  }) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 };
 
 const STORAGE_KEYS = {
@@ -86,7 +92,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     const meRef = getAuthRef("me", "authActions:me");
-    const refreshRef = getAuthRef("refreshSession", "authActions:refreshSession");
+    const refreshRef = getAuthRef(
+      "refreshSession",
+      "authActions:refreshSession"
+    );
 
     try {
       const refreshed = await convexClient.action(meRef, {
@@ -157,7 +166,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   refresh: async () => {
     const tokens = get().tokens;
     if (!tokens) return;
-    const refreshRef = getAuthRef("refreshSession", "authActions:refreshSession");
+    const refreshRef = getAuthRef(
+      "refreshSession",
+      "authActions:refreshSession"
+    );
     const refreshed = (await convexClient.action(refreshRef, {
       refreshToken: tokens.refreshToken,
     })) as { tokens: TokenBundle };
@@ -180,5 +192,63 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   resetPassword: async ({ token, password }) => {
     const resetRef = getAuthRef("resetPassword", "authActions:resetPassword");
     await convexClient.action(resetRef, { token, password });
+  },
+
+  updateProfile: async ({ fullName, email }) => {
+    const tokens = get().tokens;
+    if (!tokens) {
+      throw new Error("You need to be signed in to update your profile.");
+    }
+
+    const trimmedName = fullName.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!trimmedName) {
+      throw new Error("Full name is required.");
+    }
+    if (!normalizedEmail) {
+      throw new Error("Email is required.");
+    }
+
+    const updateRef = getAuthRef("updateProfile", "authActions:updateProfile");
+    const response = (await convexClient.action(updateRef, {
+      accessToken: tokens.accessToken,
+      fullName: trimmedName,
+      email: normalizedEmail,
+    })) as { user: AuthUser; tokens: TokenBundle };
+
+    persist(response.user, response.tokens);
+    set({ user: response.user, tokens: response.tokens });
+  },
+
+  changePassword: async ({ currentPassword, newPassword }) => {
+    const tokens = get().tokens;
+    if (!tokens) {
+      throw new Error("You need to be signed in to change your password.");
+    }
+
+    const changeRef = getAuthRef(
+      "changePassword",
+      "authActions:changePassword"
+    );
+    await convexClient.action(changeRef, {
+      accessToken: tokens.accessToken,
+      currentPassword,
+      newPassword,
+    });
+  },
+
+  deleteAccount: async () => {
+    const tokens = get().tokens;
+    if (!tokens) {
+      return;
+    }
+
+    const deleteRef = getAuthRef("deleteAccount", "authActions:deleteAccount");
+    await convexClient.action(deleteRef, {
+      accessToken: tokens.accessToken,
+    });
+
+    clearPersisted();
+    set({ user: null, tokens: null, isLoading: false });
   },
 }));

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { z } from "zod";
 import {
   Card,
   CardContent,
@@ -22,9 +23,28 @@ import {
 import { toast } from "sonner";
 import { useAuthStore } from "@/zustand/AuthStore";
 
+// Zod schemas
+const signInSchema = z.object({
+  email: z.email("Invalid email address").min(1, "Email is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+const signUpSchema = z.object({
+  fullName: z.string().min(1, "Full name is required").trim(),
+  email: z.string().email("Invalid email address").min(1, "Email is required"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[a-zA-Z]/, "Password must contain at least one letter")
+    .regex(/\d/, "Password must contain at least one number"),
+});
+
+const resetPasswordSchema = z.object({
+  email: z.string().email("Invalid email address").min(1, "Email is required"),
+});
+
 export function SignInAndSignUp() {
-  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
-  const [resetEmail, setResetEmail] = useState("");
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signup");
   const [resetSent, setResetSent] = useState(false);
   const [isResetOpen, setIsResetOpen] = useState(false);
   const navigate = useNavigate();
@@ -46,8 +66,17 @@ export function SignInAndSignUp() {
       password: "",
     },
     onSubmit: async ({ value }) => {
+      const result = signInSchema.safeParse(value);
+      if (!result.success) {
+        const error = result.error.issues[0];
+        toast.error("Validation error", {
+          description: error.message,
+        });
+        return;
+      }
+
       try {
-        await signIn({ email: value.email, password: value.password });
+        await signIn(result.data);
         toast.success("Signed in successfully");
         navigate({ to: "/dashboard" });
       } catch (error: any) {
@@ -66,12 +95,17 @@ export function SignInAndSignUp() {
       fullName: "",
     },
     onSubmit: async ({ value }) => {
-      try {
-        await signUp({
-          email: value.email,
-          password: value.password,
-          fullName: value.fullName,
+      const result = signUpSchema.safeParse(value);
+      if (!result.success) {
+        const error = result.error.issues[0];
+        toast.error("Validation error", {
+          description: error.message,
         });
+        return;
+      }
+
+      try {
+        await signUp(result.data);
         toast.success("Account created");
         navigate({ to: "/dashboard" });
       } catch (error: any) {
@@ -82,45 +116,55 @@ export function SignInAndSignUp() {
     },
   });
 
-  const handleResetSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const email = resetEmail.trim();
-    if (!email) {
-      toast.error("Enter the email associated with your account.");
-      return;
-    }
-    try {
-      await requestPasswordReset(email);
-      setResetSent(true);
-      toast.success("Reset email sent", {
-        description: "Check your inbox for instructions.",
-      });
-    } catch (error: any) {
-      toast.error("Could not send reset email", {
-        description: error?.message ?? "Please try again later.",
-      });
-    }
-  };
+  const resetPasswordForm = useForm({
+    defaultValues: {
+      email: "",
+    },
+    onSubmit: async ({ value }) => {
+      const result = resetPasswordSchema.safeParse(value);
+      if (!result.success) {
+        const error = result.error.issues[0];
+        toast.error("Validation error", {
+          description: error.message,
+        });
+        return;
+      }
+
+      try {
+        await requestPasswordReset(result.data.email);
+        setResetSent(true);
+        toast.success("Reset email sent", {
+          description: "Check your inbox for instructions.",
+        });
+      } catch (error: any) {
+        toast.error("Could not send reset email", {
+          description: error?.message ?? "Please try again later.",
+        });
+      }
+    },
+  });
 
   return (
     <>
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Welcome</CardTitle>
+          <CardTitle>Welcome to MeshMind</CardTitle>
           <CardDescription>
-            Sign in to your account or create a new one
+            {activeTab === "signup"
+              ? "Create an account to get started"
+              : "Sign in to your account"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs
             value={activeTab}
             onValueChange={(value) =>
-              setActiveTab(value as "signin" | "signup")
+              setActiveTab(value as "signup" | "signin")
             }
           >
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              <TabsTrigger value="signin">Sign In</TabsTrigger>
             </TabsList>
 
             <TabsContent value="signin">
@@ -163,7 +207,7 @@ export function SignInAndSignUp() {
                               className="text-sm text-primary hover:underline"
                               onClick={() => {
                                 setResetSent(false);
-                                setResetEmail("");
+                                resetPasswordForm.reset();
                               }}
                             >
                               Forgot password?
@@ -175,21 +219,29 @@ export function SignInAndSignUp() {
                             </DialogHeader>
                             <form
                               className="space-y-4"
-                              onSubmit={handleResetSubmit}
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                resetPasswordForm.handleSubmit();
+                              }}
                             >
-                              <div className="space-y-2">
-                                <Label htmlFor="reset-email">Email</Label>
-                                <Input
-                                  id="reset-email"
-                                  type="email"
-                                  value={resetEmail}
-                                  onChange={(event) =>
-                                    setResetEmail(event.target.value)
-                                  }
-                                  placeholder="you@example.com"
-                                  required
-                                />
-                              </div>
+                              <resetPasswordForm.Field name="email">
+                                {(field) => (
+                                  <div className="space-y-2">
+                                    <Label htmlFor="reset-email">Email</Label>
+                                    <Input
+                                      id="reset-email"
+                                      type="email"
+                                      value={field.state.value}
+                                      onChange={(event) =>
+                                        field.handleChange(event.target.value)
+                                      }
+                                      placeholder="you@example.com"
+                                      required
+                                    />
+                                  </div>
+                                )}
+                              </resetPasswordForm.Field>
                               {resetSent && (
                                 <p className="text-sm text-muted-foreground">
                                   If an account exists for this email, you will
@@ -204,7 +256,13 @@ export function SignInAndSignUp() {
                                 >
                                   Cancel
                                 </Button>
-                                <Button type="submit" disabled={isAuthLoading}>
+                                <Button
+                                  type="submit"
+                                  disabled={
+                                    isAuthLoading ||
+                                    resetPasswordForm.state.isSubmitting
+                                  }
+                                >
                                   Send reset link
                                 </Button>
                               </div>

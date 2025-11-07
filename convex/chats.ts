@@ -1,14 +1,36 @@
 "use node";
+
 import { action } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { verifyAccessToken } from "./token";
-import { Id } from "./_generated/dataModel";
+import { Id, Doc } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 
-const truncate = (value: string, length = 120) =>
+const truncate = (value: string, length = 120): string =>
   value.length <= length ? value : `${value.slice(0, length)}...`;
 
-const formatChat = (chat: any, messages: any[]) => ({
+interface FormattedChat {
+  id: Id<"chats">;
+  title: string;
+  preview: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: FormattedMessage[];
+}
+
+interface FormattedMessage {
+  id: Id<"messages">;
+  chatId: Id<"chats">;
+  authorId: Id<"users">;
+  role: string;
+  content: string;
+  createdAt: number;
+}
+
+const formatChat = (
+  chat: Doc<"chats">,
+  messages: Doc<"messages">[]
+): FormattedChat => ({
   id: chat._id,
   title: chat.title,
   preview: chat.preview,
@@ -17,7 +39,7 @@ const formatChat = (chat: any, messages: any[]) => ({
   messages: messages.map(formatMessage),
 });
 
-const formatMessage = (message: any) => ({
+const formatMessage = (message: Doc<"messages">): FormattedMessage => ({
   id: message._id,
   chatId: message.chatId,
   authorId: message.authorId,
@@ -30,8 +52,10 @@ const ensureOwnership = async (
   ctx: any,
   userId: Id<"users">,
   chatId: Id<"chats">
-) => {
-  const chat = await ctx.runQuery(internal.chatsInternal.internalGetChatById, { chatId });
+): Promise<Doc<"chats">> => {
+  const chat = await ctx.runQuery(internal.chatsInternal.internalGetChatById, {
+    chatId,
+  });
   if (!chat || chat.userId !== userId) {
     throw new ConvexError("Chat not found");
   }
@@ -42,17 +66,20 @@ export const listChats = action({
   args: {
     accessToken: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<FormattedChat[]> => {
     const payload = verifyAccessToken(args.accessToken);
     const userId = payload.userId as Id<"users">;
 
-    const chats = await ctx.runQuery(internal.chatsInternal.internalListChatsByUser, {
-      userId,
-    });
+    const chats: Doc<"chats">[] = await ctx.runQuery(
+      internal.chatsInternal.internalListChatsByUser,
+      {
+        userId,
+      }
+    );
 
-    const results = await Promise.all(
-      chats.map(async (chat: any) => {
-        const messages = await ctx.runQuery(
+    const results: FormattedChat[] = await Promise.all(
+      chats.map(async (chat: Doc<"chats">) => {
+        const messages: Doc<"messages">[] = await ctx.runQuery(
           internal.chatsInternal.internalListMessagesByChat,
           {
             chatId: chat._id,
@@ -75,20 +102,23 @@ export const createChat = action({
       content: v.string(),
     }),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<FormattedChat> => {
     const payload = verifyAccessToken(args.accessToken);
     const userId = payload.userId as Id<"users">;
     const title = args.title.trim() || "New chat";
     const now = Date.now();
 
-    const chatId = await ctx.runMutation(internal.chatsInternal.internalInsertChat, {
-      userId,
-      title,
-      preview: truncate(args.firstMessage.content),
-      timestamp: now,
-    });
+    const chatId: Id<"chats"> = await ctx.runMutation(
+      internal.chatsInternal.internalInsertChat,
+      {
+        userId,
+        title,
+        preview: truncate(args.firstMessage.content),
+        timestamp: now,
+      }
+    );
 
-    const messageDoc = await ctx.runMutation(
+    const messageDoc: Doc<"messages"> | null = await ctx.runMutation(
       internal.chatsInternal.internalInsertMessage,
       {
         chatId,
@@ -99,9 +129,16 @@ export const createChat = action({
       }
     );
 
-    const chat = await ctx.runQuery(internal.chatsInternal.internalGetChatById, {
-      chatId,
-    });
+    const chat: Doc<"chats"> | null = await ctx.runQuery(
+      internal.chatsInternal.internalGetChatById,
+      {
+        chatId,
+      }
+    );
+
+    if (!chat || !messageDoc) {
+      throw new ConvexError("Failed to create chat");
+    }
 
     return formatChat(chat, [messageDoc]);
   },
@@ -116,13 +153,16 @@ export const appendMessage = action({
       content: v.string(),
     }),
   },
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ chat: FormattedChat; message: FormattedMessage }> => {
     const payload = verifyAccessToken(args.accessToken);
     const userId = payload.userId as Id<"users">;
     const chat = await ensureOwnership(ctx, userId, args.chatId);
     const now = Date.now();
 
-    const messageDoc = await ctx.runMutation(
+    const messageDoc: Doc<"messages"> | null = await ctx.runMutation(
       internal.chatsInternal.internalInsertMessage,
       {
         chatId: args.chatId,
@@ -132,6 +172,10 @@ export const appendMessage = action({
         timestamp: now,
       }
     );
+
+    if (!messageDoc) {
+      throw new ConvexError("Failed to create message");
+    }
 
     await ctx.runMutation(internal.chatsInternal.internalUpdateChatPreview, {
       chatId: args.chatId,
@@ -157,7 +201,7 @@ export const renameChat = action({
     chatId: v.id("chats"),
     title: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<FormattedChat> => {
     const payload = verifyAccessToken(args.accessToken);
     const userId = payload.userId as Id<"users">;
     const chat = await ensureOwnership(ctx, userId, args.chatId);
@@ -166,10 +210,17 @@ export const renameChat = action({
       throw new ConvexError("Title cannot be empty.");
     }
 
-    const updated = await ctx.runMutation(internal.chatsInternal.internalRenameChat, {
-      chatId: args.chatId,
-      title: trimmed,
-    });
+    const updated: Doc<"chats"> | null = await ctx.runMutation(
+      internal.chatsInternal.internalRenameChat,
+      {
+        chatId: args.chatId,
+        title: trimmed,
+      }
+    );
+
+    if (!updated) {
+      throw new ConvexError("Failed to rename chat");
+    }
 
     return formatChat(
       { ...chat, title: trimmed, updatedAt: updated.updatedAt },
@@ -183,7 +234,7 @@ export const deleteChat = action({
     accessToken: v.string(),
     chatId: v.id("chats"),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<void> => {
     const payload = verifyAccessToken(args.accessToken);
     const userId = payload.userId as Id<"users">;
     await ensureOwnership(ctx, userId, args.chatId);
@@ -192,4 +243,3 @@ export const deleteChat = action({
     });
   },
 });
-

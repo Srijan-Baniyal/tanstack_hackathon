@@ -128,6 +128,22 @@ export const internalUpdatePassword = internalMutation({
   },
 });
 
+export const internalUpdateUserProfile = internalMutation({
+  args: {
+    userId: v.id("users"),
+    email: v.string(),
+    fullName: v.string(),
+    timestamp: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      email: args.email,
+      fullName: args.fullName,
+      updatedAt: args.timestamp,
+    });
+  },
+});
+
 export const internalUpdateKeys = internalMutation({
   args: {
     userId: v.id("users"),
@@ -194,5 +210,40 @@ export const internalGetKeysByUserId = internalQuery({
       createdAt: keys.createdAt,
       updatedAt: keys.updatedAt,
     };
+  },
+});
+
+export const internalDeleteUserCascade = internalMutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const chatsQuery = (ctx.db as any).query("chats");
+    const chats = await chatsQuery
+      .withIndex("by_user", (q: any) => q.eq("userId", args.userId))
+      .collect();
+
+    for (const chat of chats) {
+      const messagesQuery = (ctx.db as any).query("messages");
+      const messages = await messagesQuery
+        .withIndex("by_chat", (q: any) => q.eq("chatId", chat._id))
+        .collect();
+
+      await Promise.all(
+        messages.map((message: any) => ctx.db.delete(message._id))
+      );
+      await ctx.db.delete(chat._id);
+    }
+
+    const keysQuery = (ctx.db as any).query("userKeys");
+    const userKeys = await keysQuery
+      .withIndex("by_user", (q: any) => q.eq("userId", args.userId))
+      .unique();
+
+    if (userKeys) {
+      await ctx.db.delete(userKeys._id);
+    }
+
+    await ctx.db.delete(args.userId);
   },
 });
