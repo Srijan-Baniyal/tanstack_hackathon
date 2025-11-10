@@ -14,7 +14,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  MessageSquare,
   Plus,
   Search,
   Pencil,
@@ -300,11 +299,8 @@ export default function ChatSidebar({
         <SidebarHeader className="border-b border-sidebar-border px-4 py-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                <MessageSquare className="size-5" />
-              </div>
               <div>
-                <h1 className="font-semibold text-base">Messages</h1>
+                <h1 className="font-semibold text-base">MeshMind</h1>
                 <p className="text-xs text-muted-foreground">
                   {conversations.length} conversations
                 </p>
@@ -361,11 +357,10 @@ export default function ChatSidebar({
                   </SidebarMenuButton>
                   <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+                      <DropdownMenuTrigger asChild className="bg-transparent">
                         <Button
-                          variant="ghost"
                           size="icon"
-                          className="size-8 rounded-lg"
+                          className="size-8 rounded-lg hover:bg-transparent data-[state=open]:opacity-100"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <MoreVertical className="size-4" />
@@ -416,7 +411,11 @@ export default function ChatSidebar({
                       </div>
                     </SidebarMenuButton>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" side="top" className="w-(--radix-dropdown-menu-trigger-width)">
+                  <DropdownMenuContent
+                    align="start"
+                    side="top"
+                    className="w-(--radix-dropdown-menu-trigger-width)"
+                  >
                     <DropdownMenuItem
                       onClick={() => {
                         setAdvancedDialogOpen(true);

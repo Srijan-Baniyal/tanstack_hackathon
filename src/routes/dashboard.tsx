@@ -14,8 +14,8 @@ export const Route = createFileRoute("/dashboard")({
     if (typeof window === "undefined") return;
     const authState = useAuthStore.getState();
     await authState.initialize();
-    const tokens = useAuthStore.getState().tokens;
-    if (!tokens?.accessToken) {
+    const accessToken = await authState.getValidAccessToken();
+    if (!accessToken) {
       throw redirect({ to: "/signinandsignup" });
     }
   },
@@ -82,7 +82,7 @@ function Dashboard() {
             )}
           </div>
           {(isNewChatMode || selectedChat) && (
-            <div className="border-t p-4 md:p-6 bg-card">
+            <div className="p-4 md:p-6">
               <div className="max-w-3xl mx-auto">
                 <ChatInput onSendMessage={sendMessage} disabled={isStreaming} />
               </div>

@@ -11,7 +11,10 @@ import {
   type Message,
   type ServerChat,
 } from "@/lib/chat-storage";
+import type { PreparedAgentConfig } from "@/zustand/AgentStore";
 import { useAuthStore } from "@/zustand/AuthStore";
+
+type ActionReference = Parameters<typeof convexClient.action>[0];
 
 type ChatStoreState = {
   conversations: Chat[];
@@ -19,12 +22,13 @@ type ChatStoreState = {
   isNewChatMode: boolean;
   messages: UIMessage[];
   isStreaming: boolean;
+  activeAgents: PreparedAgentConfig[];
   initialize: () => Promise<void>;
   startNewChat: () => void;
   selectChat: (chatId: string) => void;
   renameChat: (chatId: string, newTitle: string) => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
-  sendMessage: (message: string) => Promise<void>;
+  sendMessage: (message: string, agents?: PreparedAgentConfig[]) => Promise<void>;
   reset: () => void;
 };
 
@@ -39,10 +43,11 @@ const AI_RESPONSES = [
   "Cheers! I've got just the solution for you, mate.",
 ];
 
-const getChatsRef = (name: string, fallback: string) => {
-  const chatsModule = (api as Record<string, any> | undefined)?.chats;
+const getChatsRef = (name: string, fallback: string): ActionReference => {
+  const chatsModule = (api as Record<string, unknown> | undefined)
+    ?.chats as Record<string, ActionReference> | undefined;
   const reference = chatsModule?.[name];
-  return reference ?? fallback;
+  return reference ?? ((fallback as unknown) as ActionReference);
 };
 
 const toUIMessage = (message: Message): UIMessage => ({
@@ -58,12 +63,14 @@ const initialState: Pick<
   | "isNewChatMode"
   | "messages"
   | "isStreaming"
+  | "activeAgents"
 > = {
   conversations: [],
   selectedChatId: null,
   isNewChatMode: false,
   messages: [],
   isStreaming: false,
+  activeAgents: [],
 };
 
 export const useChatStore = create<ChatStoreState>((set, get) => ({
@@ -72,17 +79,17 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
   initialize: async () => {
     const auth = useAuthStore.getState();
     await auth.initialize();
-    const token = useAuthStore.getState().tokens?.accessToken;
-    if (!token) {
+    const accessToken = await auth.getValidAccessToken();
+    if (!accessToken) {
       set({ ...initialState, isNewChatMode: true });
       return;
     }
 
     const listRef = getChatsRef("listChats", "chats:listChats");
     try {
-      const response = (await convexClient.action(listRef, {
-        accessToken: token,
-      })) as ServerChat[];
+      const response = await auth.callAuthenticatedAction<ServerChat[]>(
+        listRef
+      );
       const chats = response.map(mapServerChat);
       set({
         conversations: chats,
@@ -90,6 +97,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
         isNewChatMode: chats.length === 0,
         messages: chats.length > 0 ? chats[0].messages.map(toUIMessage) : [],
         isStreaming: false,
+        activeAgents: [],
       });
     } catch (error) {
       console.error("Failed to load chats", error);
@@ -106,6 +114,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
       isNewChatMode: true,
       messages: [],
       isStreaming: false,
+      activeAgents: [],
     });
   },
 
@@ -129,6 +138,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
       isNewChatMode: false,
       messages: target.messages.map(toUIMessage),
       isStreaming: false,
+      activeAgents: [],
     });
   },
 
@@ -139,16 +149,10 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
       return;
     }
 
-    const token = useAuthStore.getState().tokens?.accessToken;
-    if (!token) {
-      toast.error("You need to be signed in to rename chats.");
-      return;
-    }
-
+    const auth = useAuthStore.getState();
     const renameRef = getChatsRef("renameChat", "chats:renameChat");
     try {
-      await convexClient.action(renameRef, {
-        accessToken: token,
+      await auth.callAuthenticatedAction(renameRef, {
         chatId,
         title: trimmed,
       });
@@ -173,22 +177,21 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
       });
     } catch (error) {
       console.error("Failed to rename chat", error);
+      const message =
+        error instanceof Error && error.message.includes("signed in")
+          ? "You need to be signed in to rename chats."
+          : "Please try again.";
       toast.error("Renaming failed", {
-        description: "Please try again.",
+        description: message,
       });
     }
   },
 
   deleteChat: async (chatId) => {
-    const token = useAuthStore.getState().tokens?.accessToken;
-    if (!token) {
-      toast.error("You need to be signed in to delete chats.");
-      return;
-    }
-
+    const auth = useAuthStore.getState();
     const deleteRef = getChatsRef("deleteChat", "chats:deleteChat");
     try {
-      await convexClient.action(deleteRef, { accessToken: token, chatId });
+      await auth.callAuthenticatedAction(deleteRef, { chatId });
 
       set((state) => {
         const remaining = state.conversations.filter(
@@ -205,6 +208,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
             isNewChatMode: true,
             messages: [],
             isStreaming: false,
+            activeAgents: [],
           };
         }
 
@@ -215,6 +219,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
           isNewChatMode: false,
           messages: nextChat.messages.map(toUIMessage),
           isStreaming: false,
+          activeAgents: [],
         };
       });
 
@@ -223,19 +228,26 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
       });
     } catch (error) {
       console.error("Failed to delete chat", error);
+      const message =
+        error instanceof Error && error.message.includes("signed in")
+          ? "You need to be signed in to delete chats."
+          : "Please try again.";
       toast.error("Deletion failed", {
-        description: "Please try again.",
+        description: message,
       });
     }
   },
 
-  sendMessage: async (rawMessage) => {
+  sendMessage: async (rawMessage, agents) => {
     const trimmedMessage = rawMessage.trim();
     if (!trimmedMessage) return;
 
+    const activeAgents = agents ?? [];
+    set({ activeAgents });
+
     const authState = useAuthStore.getState();
-    const token = authState.tokens?.accessToken;
-    if (!token) {
+    const accessToken = await authState.getValidAccessToken();
+    if (!accessToken) {
       toast.error("Sign in to send messages.");
       return;
     }
@@ -272,14 +284,16 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
             ? `${tentativeTitle.slice(0, 60)}...`
             : tentativeTitle;
 
-        const created = (await convexClient.action(createRef, {
-          accessToken: token,
-          title,
-          firstMessage: {
-            role: "user",
-            content: trimmedMessage,
-          },
-        })) as ServerChat;
+        const created = await authState.callAuthenticatedAction<ServerChat>(
+          createRef,
+          {
+            title,
+            firstMessage: {
+              role: "user",
+              content: trimmedMessage,
+            },
+          }
+        );
 
         const mapped = mapServerChat(created);
         conversations = [mapped, ...conversations];
@@ -289,8 +303,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
           description: "Your conversation has started.",
         });
       } else {
-        await convexClient.action(appendRef, {
-          accessToken: token,
+        await authState.callAuthenticatedAction(appendRef, {
           chatId,
           message: {
             role: "user",
@@ -318,13 +331,20 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
         isNewChatMode: false,
         messages: [...previousMessages, userUIMessage],
         isStreaming: true,
+        activeAgents,
       });
 
       const responseDelay = 1500;
 
       setTimeout(async () => {
-        const aiResponse =
+        const baseResponse =
           AI_RESPONSES[Math.floor(Math.random() * AI_RESPONSES.length)];
+        const webEnabledAgent = activeAgents.find(
+          (agentConfig) => agentConfig.webSearch && agentConfig.webSearch !== "none"
+        );
+        const aiResponse = webEnabledAgent
+          ? `${baseResponse}\n\n(Web search via ${webEnabledAgent.provider}: ${webEnabledAgent.webSearch})`
+          : baseResponse;
         const aiUIMessage: UIMessage = {
           id: crypto.randomUUID(),
           role: "assistant",
@@ -340,8 +360,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
 
         try {
           if (chatId) {
-            await convexClient.action(appendRef, {
-              accessToken: token,
+            await authState.callAuthenticatedAction(appendRef, {
               chatId,
               message: {
                 role: "assistant",
@@ -370,6 +389,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
             conversations: updatedChats,
             messages: [...current.messages, aiUIMessage],
             isStreaming: false,
+            activeAgents: current.activeAgents,
           };
         });
       }, responseDelay);

@@ -1,22 +1,68 @@
-import { MessageSquare } from "lucide-react";
+import { MorphingText } from "@/components/ui/morphing";
+import { useMemo } from "react";
+import { useAuthStore } from "@/zustand/AuthStore";
 
 export default function ChatEmptyState() {
+  const user = useAuthStore((state) => state.user);
+  
+  const { greeting, messages } = useMemo(() => {
+    const hour = new Date().getHours();
+    const fullName = user?.fullName || "";
+    
+    if (hour >= 5 && hour < 12) {
+      return {
+        greeting: `Good Morning${fullName ? `, ${fullName}` : ""}`,
+        messages: [
+          "Start your creative day ☀️",
+          "Start your amazing day 💡",
+          "Start your perfect day ✨"
+        ]
+      };
+    } else if (hour >= 12 && hour < 17) {
+      return {
+        greeting: `Good Afternoon${fullName ? `, ${fullName}` : ""}`,
+        messages: [
+          "Keep creating great work 🚀",
+          "Keep creating new ideas 💪",
+          "Keep creating your best ✨"
+        ]
+      };
+    } else if (hour >= 17 && hour < 22) {
+      return {
+        greeting: `Good Evening${fullName ? `, ${fullName}` : ""}`,
+        messages: [
+          "Time to reflect and rest 🌅",
+          "Time to reflect and chat 💭",
+          "Time to reflect and plan 🌟"
+        ]
+      };
+    } else {
+      return {
+        greeting: `Still Going Strong${fullName ? `, ${fullName}` : ""}`,
+        messages: [
+          "Creative hours ahead 🦉",
+          "Creative ideas ahead 🎨",
+          "Creative magic ahead 💫"
+        ]
+      };
+    }
+  }, [user?.fullName]);
+
   return (
-    <div className="flex items-center justify-center h-full p-6">
-      <div className="text-center max-w-md">
-        <div className="relative mx-auto mb-6 w-fit">
-          <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full" />
-          <div className="relative flex size-20 md:size-24 items-center justify-center rounded-3xl bg-linear-to-br from-primary/90 to-primary text-primary-foreground shadow-lg shadow-primary/25">
-            <MessageSquare className="size-10 md:size-12" strokeWidth={1.5} />
-          </div>
+    <div className="flex items-center justify-center h-full">
+      <div className="text-center max-w-xl space-y-6">
+        <div className="space-y-3">
+          <h2 className="text-lg md:text-xl font-medium text-muted-foreground">
+            {greeting} 👋
+          </h2>
+          <MorphingText
+            key={`${greeting}-morphing`}
+            className="text-2xl md:text-3xl font-semibold text-foreground max-w-2xl"
+            text={messages}
+            loop={true}
+            holdDelay={2500}
+          />
         </div>
-        <h3 className="text-2xl md:text-3xl font-bold mb-3 text-balance bg-linear-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
-          Select a conversation
-        </h3>
-        <p className="text-sm md:text-base text-muted-foreground text-balance leading-relaxed">
-          Choose a chat from the sidebar to start messaging or create a new
-          conversation
-        </p>
       </div>
     </div>
   );

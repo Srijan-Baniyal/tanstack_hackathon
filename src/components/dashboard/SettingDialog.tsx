@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SettingsIcon, Plus, Trash2 } from "lucide-react";
 import { getSettings, saveSettings, type Settings } from "@/lib/settings";
-import { Textarea } from "@/components/ui/textarea";
 
 type SettingsFormValues = {
   openRouterKey: string;
@@ -154,11 +153,10 @@ export default function SettingsDialog() {
                     </p>
 
                     <div className="flex gap-2">
-                      <Textarea
+                      <Input
                         placeholder="Enter a system prompt..."
                         value={newPrompt}
                         onChange={(e) => setNewPrompt(e.target.value)}
-                        className="min-h-[80px]"
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && e.ctrlKey) {
                             e.preventDefault();
