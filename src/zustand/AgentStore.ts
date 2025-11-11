@@ -1,19 +1,14 @@
 import { create } from "zustand";
 import {
-  DEFAULT_SYSTEM_PROMPT,
-  VERCEL_MODELS,
   fetchOpenRouterModels,
   type Model,
   type ProviderType,
 } from "@/lib/models";
 
 export const DEFAULT_AGENT_COUNT = 1;
-export const MAX_AGENTS = 4;
-export const DEFAULT_PROMPT_KEY = "__default__" as const;
+export const MAX_AGENTS = 10;
 export const NONE_PROMPT_KEY = "__none__" as const;
-const DEFAULT_VERCEL_MODEL_ID = VERCEL_MODELS[0]?.id ?? "gpt-4o";
-
-export type SystemPromptKey = "__default__" | "__none__" | `custom-${number}`;
+export type SystemPromptKey = "__none__" | `custom-${number}`;
 
 export interface AgentConfig {
   provider: ProviderType;
@@ -40,10 +35,7 @@ type AgentStoreState = {
   setProvider: (index: number, provider: ProviderType) => void;
   setModelId: (index: number, modelId: string) => void;
   setSystemPromptKey: (index: number, key: SystemPromptKey) => void;
-  setWebSearch: (
-    index: number,
-    value: "none" | "native" | "firecrawl"
-  ) => void;
+  setWebSearch: (index: number, value: "none" | "native" | "firecrawl") => void;
   ensureOpenRouterModels: (openRouterKey: string) => Promise<void>;
   validateSystemPromptKeys: (customPromptCount: number) => void;
   hydrateFromPreparedAgents: (
@@ -56,7 +48,7 @@ type AgentStoreState = {
 const createAgentConfig = (): AgentConfig => ({
   provider: "vercel",
   modelId: undefined,
-  systemPromptKey: DEFAULT_PROMPT_KEY,
+  systemPromptKey: NONE_PROMPT_KEY,
   webSearch: "none",
   systemPromptOverride: undefined,
 });
@@ -119,7 +111,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
       const target: AgentConfig = { ...nextConfigs[index], provider };
 
       if (provider === "vercel") {
-        target.modelId = VERCEL_MODELS[0]?.id ?? DEFAULT_VERCEL_MODEL_ID;
+        target.modelId = undefined;
       } else {
         const models = state.openRouterModels;
         target.modelId = models[0]?.id;
@@ -196,7 +188,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
           if (!Number.isFinite(index) || index >= customPromptCount) {
             return {
               ...agent,
-              systemPromptKey: DEFAULT_PROMPT_KEY,
+              systemPromptKey: NONE_PROMPT_KEY,
               systemPromptOverride: undefined,
             };
           }
@@ -219,19 +211,19 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         };
       }
 
-      const deriveKey = (prompt: string): {
+      const deriveKey = (
+        prompt: string
+      ): {
         key: SystemPromptKey;
         override?: string;
       } => {
         if (!prompt.trim()) {
           return { key: NONE_PROMPT_KEY };
         }
-        if (prompt === DEFAULT_SYSTEM_PROMPT) {
-          return { key: DEFAULT_PROMPT_KEY };
-        }
 
+        const trimmed = prompt.trim();
         const matchedIndex = systemPrompts.findIndex(
-          (stored) => stored === prompt
+          (stored) => stored === trimmed
         );
 
         if (matchedIndex >= 0) {
@@ -240,7 +232,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
           };
         }
 
-        return { key: NONE_PROMPT_KEY, override: prompt };
+        return { key: NONE_PROMPT_KEY, override: trimmed };
       };
 
       const nextAgents = agents.slice(0, MAX_AGENTS).map((agent) => {

@@ -29,7 +29,10 @@ type ChatStoreState = {
   selectChat: (chatId: string) => void;
   renameChat: (chatId: string, newTitle: string) => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
-  sendMessage: (message: string, agents?: PreparedAgentConfig[]) => Promise<void>;
+  sendMessage: (
+    message: string,
+    agents?: PreparedAgentConfig[]
+  ) => Promise<void>;
   saveAgentConfiguration: (
     chatId: string,
     agents: PreparedAgentConfig[]
@@ -53,10 +56,11 @@ type ServerChatWithAgents = ServerChat & {
 };
 
 const getChatsRef = (name: string, fallback: string): ActionReference => {
-  const chatsModule = (api as Record<string, unknown> | undefined)
-    ?.chats as Record<string, ActionReference> | undefined;
+  const chatsModule = (api as Record<string, unknown> | undefined)?.chats as
+    | Record<string, ActionReference>
+    | undefined;
   const reference = chatsModule?.[name];
-  return reference ?? ((fallback as unknown) as ActionReference);
+  return reference ?? (fallback as unknown as ActionReference);
 };
 
 const toUIMessage = (message: Message): UIMessage => ({
@@ -116,9 +120,8 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
 
     const listRef = getChatsRef("listChats", "chats:listChats");
     try {
-      const response = await auth.callAuthenticatedAction<ServerChat[]>(
-        listRef
-      );
+      const response =
+        await auth.callAuthenticatedAction<ServerChat[]>(listRef);
       const chats = response.map(mapServerChat);
       set({
         conversations: chats,
@@ -316,16 +319,16 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
 
         const created =
           await authState.callAuthenticatedAction<ServerChatWithAgents>(
-          createRef,
-          {
-            title,
-            firstMessage: {
-              role: "user",
-              content: trimmedMessage,
-            },
+            createRef,
+            {
+              title,
+              firstMessage: {
+                role: "user",
+                content: trimmedMessage,
+              },
               agents: activeAgents,
-          }
-        );
+            }
+          );
 
         const mapped = mapServerChat(created);
         conversations = [mapped, ...conversations];
@@ -374,7 +377,8 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
         const baseResponse =
           AI_RESPONSES[Math.floor(Math.random() * AI_RESPONSES.length)];
         const webEnabledAgent = activeAgents.find(
-          (agentConfig) => agentConfig.webSearch && agentConfig.webSearch !== "none"
+          (agentConfig) =>
+            agentConfig.webSearch && agentConfig.webSearch !== "none"
         );
         const aiResponse = webEnabledAgent
           ? `${baseResponse}\n\n(Web search via ${webEnabledAgent.provider}: ${webEnabledAgent.webSearch})`

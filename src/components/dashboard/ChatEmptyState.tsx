@@ -4,19 +4,19 @@ import { useAuthStore } from "@/zustand/AuthStore";
 
 export default function ChatEmptyState() {
   const user = useAuthStore((state) => state.user);
-  
+
   const { greeting, messages } = useMemo(() => {
     const hour = new Date().getHours();
     const fullName = user?.fullName || "";
-    
+
     if (hour >= 5 && hour < 12) {
       return {
         greeting: `Good Morning${fullName ? `, ${fullName}` : ""}`,
         messages: [
           "Start your creative day ☀️",
           "Start your amazing day 💡",
-          "Start your perfect day ✨"
-        ]
+          "Start your perfect day ✨",
+        ],
       };
     } else if (hour >= 12 && hour < 17) {
       return {
@@ -24,8 +24,8 @@ export default function ChatEmptyState() {
         messages: [
           "Keep creating great work 🚀",
           "Keep creating new ideas 💪",
-          "Keep creating your best ✨"
-        ]
+          "Keep creating your best ✨",
+        ],
       };
     } else if (hour >= 17 && hour < 22) {
       return {
@@ -33,8 +33,8 @@ export default function ChatEmptyState() {
         messages: [
           "Time to reflect and rest 🌅",
           "Time to reflect and chat 💭",
-          "Time to reflect and plan 🌟"
-        ]
+          "Time to reflect and plan 🌟",
+        ],
       };
     } else {
       return {
@@ -42,8 +42,8 @@ export default function ChatEmptyState() {
         messages: [
           "Creative hours ahead 🦉",
           "Creative ideas ahead 🎨",
-          "Creative magic ahead 💫"
-        ]
+          "Creative magic ahead 💫",
+        ],
       };
     }
   }, [user?.fullName]);

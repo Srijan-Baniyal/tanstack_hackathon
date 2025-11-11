@@ -10,160 +10,13 @@ export interface Model {
   contextWindow?: number;
 }
 
-export const DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant.";
-
-// Curated list of models that Vercel AI Gateway supports out of the box.
-// These align with the providers exposed by the `ai` sdk today.
-export const VERCEL_MODELS: Model[] = [
-  // OpenAI
-  { id: "gpt-4.1", name: "GPT-4.1", provider: "openai", contextWindow: 128000 },
-  {
-    id: "gpt-4.1-mini",
-    name: "GPT-4.1 Mini",
-    provider: "openai",
-    contextWindow: 128000,
-  },
-  { id: "gpt-4o", name: "GPT-4o", provider: "openai", contextWindow: 128000 },
-  {
-    id: "gpt-4o-mini",
-    name: "GPT-4o Mini",
-    provider: "openai",
-    contextWindow: 64000,
-  },
-  {
-    id: "gpt-4-turbo",
-    name: "GPT-4 Turbo",
-    provider: "openai",
-    contextWindow: 128000,
-  },
-  {
-    id: "gpt-3.5-turbo",
-    name: "GPT-3.5 Turbo",
-    provider: "openai",
-    contextWindow: 16385,
-  },
-
-  // Anthropic
-  {
-    id: "claude-3-5-sonnet-latest",
-    name: "Claude 3.5 Sonnet",
-    provider: "anthropic",
-    contextWindow: 200000,
-  },
-  {
-    id: "claude-3-5-haiku-latest",
-    name: "Claude 3.5 Haiku",
-    provider: "anthropic",
-    contextWindow: 200000,
-  },
-  {
-    id: "claude-3-opus-20240229",
-    name: "Claude 3 Opus",
-    provider: "anthropic",
-    contextWindow: 200000,
-  },
-  {
-    id: "claude-3-sonnet-20240229",
-    name: "Claude 3 Sonnet",
-    provider: "anthropic",
-    contextWindow: 200000,
-  },
-  {
-    id: "claude-3-haiku-20240307",
-    name: "Claude 3 Haiku",
-    provider: "anthropic",
-    contextWindow: 200000,
-  },
-
-  // Google Gemini
-  {
-    id: "gemini-2.0-pro-exp",
-    name: "Gemini 2.0 Pro Experimental",
-    provider: "google",
-    contextWindow: 2000000,
-  },
-  {
-    id: "gemini-1.5-pro",
-    name: "Gemini 1.5 Pro",
-    provider: "google",
-    contextWindow: 2000000,
-  },
-  {
-    id: "gemini-1.5-flash",
-    name: "Gemini 1.5 Flash",
-    provider: "google",
-    contextWindow: 1000000,
-  },
-  {
-    id: "gemini-1.5-flash-8b",
-    name: "Gemini 1.5 Flash 8B",
-    provider: "google",
-    contextWindow: 1000000,
-  },
-
-  // Mistral
-  {
-    id: "mistral-large-latest",
-    name: "Mistral Large",
-    provider: "mistral",
-    contextWindow: 128000,
-  },
-  {
-    id: "mistral-small-latest",
-    name: "Mistral Small",
-    provider: "mistral",
-    contextWindow: 32000,
-  },
-  {
-    id: "mistral-nemo",
-    name: "Mistral Nemo",
-    provider: "mistral",
-    contextWindow: 32000,
-  },
-
-  // Meta
-  {
-    id: "meta-llama/llama-3.1-405b-instruct",
-    name: "Llama 3.1 405B",
-    provider: "meta",
-    contextWindow: 131072,
-  },
-  {
-    id: "meta-llama/llama-3.1-70b-instruct",
-    name: "Llama 3.1 70B",
-    provider: "meta",
-    contextWindow: 131072,
-  },
-  {
-    id: "meta-llama/llama-3.1-8b-instruct",
-    name: "Llama 3.1 8B",
-    provider: "meta",
-    contextWindow: 131072,
-  },
-
-  // Others exposed via the gateway
-  {
-    id: "perplexity/llama-3.1-sonar-large-128k-online",
-    name: "Perplexity Sonar Large",
-    provider: "perplexity",
-    contextWindow: 128000,
-  },
-  {
-    id: "perplexity/llama-3.1-sonar-small-128k-online",
-    name: "Perplexity Sonar Small",
-    provider: "perplexity",
-    contextWindow: 128000,
-  },
-  {
-    id: "xai/grok-beta",
-    name: "xAI Grok Beta",
-    provider: "xai",
-    contextWindow: 131072,
-  },
-];
+const DEFAULT_VERCEL_MODELS_URL = "https://ai-gateway.vercel.sh/v1/models";
 
 let openRouterModelsCache: Model[] | null = null;
 let openRouterFetchPromise: Promise<Model[]> | null = null;
+
+const vercelModelsCache = new Map<string, Model[]>();
+const vercelFetchPromises = new Map<string, Promise<Model[]>>();
 
 type OpenRouterApiModel = {
   id?: unknown;
@@ -174,6 +27,132 @@ type OpenRouterApiModel = {
 type OpenRouterApiResponse = {
   data?: OpenRouterApiModel[];
 };
+
+type VercelApiModel = {
+  id?: unknown;
+  name?: unknown;
+  owned_by?: unknown;
+  context_window?: unknown;
+};
+
+type VercelApiResponse = {
+  data?: VercelApiModel[];
+};
+
+const normalizeVercelModelsUrl = (gatewayUrl?: string): string => {
+  const trimmed = (gatewayUrl ?? "").trim();
+  if (!trimmed) {
+    return DEFAULT_VERCEL_MODELS_URL;
+  }
+
+  try {
+    const url = new URL(trimmed);
+    const pathname = url.pathname.replace(/\/+$/, "");
+    if (pathname.endsWith("/models")) {
+      url.pathname = pathname;
+      return url.toString();
+    }
+    url.pathname = `${pathname}/models`.replace(/\/+/, "/");
+    return url.toString();
+  } catch {
+    const prepared = trimmed.includes("://") ? trimmed : `https://${trimmed}`;
+    const withoutTrailingSlash = prepared.replace(/\/+$/, "");
+    if (withoutTrailingSlash.endsWith("/models")) {
+      return withoutTrailingSlash;
+    }
+    return `${withoutTrailingSlash}/models`;
+  }
+};
+
+const mapVercelModels = (response: VercelApiResponse): Model[] => {
+  const candidates = Array.isArray(response?.data) ? response.data : [];
+  const models: Model[] = [];
+
+  for (const candidate of candidates) {
+    if (
+      !candidate ||
+      typeof candidate.id !== "string" ||
+      !candidate.id.trim()
+    ) {
+      continue;
+    }
+
+    const name =
+      typeof candidate.name === "string" && candidate.name.trim().length > 0
+        ? candidate.name
+        : candidate.id;
+
+    models.push({
+      id: candidate.id,
+      name,
+      provider: "vercel",
+      contextWindow:
+        typeof candidate.context_window === "number"
+          ? candidate.context_window
+          : undefined,
+    });
+  }
+
+  return models.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
+};
+
+const getVercelCacheKey = (gatewayUrl?: string) =>
+  normalizeVercelModelsUrl(gatewayUrl);
+
+export async function fetchVercelModels(gatewayUrl?: string): Promise<Model[]> {
+  const cacheKey = getVercelCacheKey(gatewayUrl);
+
+  const cached = vercelModelsCache.get(cacheKey);
+  if (cached && cached.length > 0) {
+    return cached;
+  }
+
+  const inFlight = vercelFetchPromises.get(cacheKey);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      const { data } = await axios.get<VercelApiResponse>(cacheKey, {
+        headers: { Accept: "application/json" },
+      });
+
+      const mapped = mapVercelModels(data);
+      vercelModelsCache.set(cacheKey, mapped);
+      return mapped;
+    } catch (error) {
+      const detail = axios.isAxiosError(error)
+        ? `${error.response?.status ?? ""} ${error.response?.statusText ?? ""}`.trim()
+        : "";
+      console.error(
+        `Failed to fetch Vercel models${detail ? `: ${detail}` : ""}`,
+        error
+      );
+      vercelModelsCache.set(cacheKey, []);
+      return [];
+    } finally {
+      vercelFetchPromises.delete(cacheKey);
+    }
+  })();
+
+  vercelFetchPromises.set(cacheKey, fetchPromise);
+  return fetchPromise;
+}
+
+export function clearVercelModelCache(gatewayUrl?: string) {
+  if (gatewayUrl) {
+    const key = getVercelCacheKey(gatewayUrl);
+    vercelModelsCache.delete(key);
+    vercelFetchPromises.delete(key);
+    return;
+  }
+
+  vercelModelsCache.clear();
+  vercelFetchPromises.clear();
+}
 
 export async function fetchOpenRouterModels(apiKey?: string): Promise<Model[]> {
   if (openRouterModelsCache && openRouterModelsCache.length > 0) {
@@ -227,40 +206,8 @@ export async function fetchOpenRouterModels(apiKey?: string): Promise<Model[]> {
         `Failed to fetch OpenRouter models${detail ? `: ${detail}` : ""}`,
         error
       );
-
-      const fallback: Model[] = [
-        {
-          id: "openai/gpt-4o",
-          name: "GPT-4o",
-          provider: "openrouter",
-          contextWindow: 128000,
-        },
-        {
-          id: "anthropic/claude-3.5-sonnet",
-          name: "Claude 3.5 Sonnet",
-          provider: "openrouter",
-          contextWindow: 200000,
-        },
-        {
-          id: "meta-llama/llama-3.1-70b-instruct",
-          name: "Llama 3.1 70B",
-          provider: "openrouter",
-          contextWindow: 131072,
-        },
-        {
-          id: "google/gemini-1.5-pro",
-          name: "Gemini 1.5 Pro",
-          provider: "openrouter",
-          contextWindow: 2000000,
-        },
-      ];
-
-      const sortedFallback = fallback.sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-      );
-
-      openRouterModelsCache = sortedFallback;
-      return sortedFallback;
+      openRouterModelsCache = [];
+      return [];
     } finally {
       openRouterFetchPromise = null;
     }
@@ -271,10 +218,28 @@ export async function fetchOpenRouterModels(apiKey?: string): Promise<Model[]> {
 
 export function clearOpenRouterModelCache() {
   openRouterModelsCache = null;
+  openRouterFetchPromise = null;
 }
 
 export function getIndependentModels(): Model[] {
   return [];
+}
+
+export function useVercelModels(
+  gatewayUrl?: string
+): UseQueryResult<Model[], Error> {
+  const cacheKey = getVercelCacheKey(gatewayUrl);
+
+  return useQuery<Model[], Error>({
+    queryKey: ["vercelModels", cacheKey],
+    queryFn: () => fetchVercelModels(gatewayUrl),
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
+    refetchIntervalInBackground: true,
+    gcTime: 30 * 60 * 1000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
 }
 
 export function useOpenRouterModels(

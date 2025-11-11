@@ -102,10 +102,12 @@ export default function HeroSection() {
 
         {/* CTAs */}
         <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-          <Button 
-            size="lg" 
-            className="group gap-2 px-8" 
-            onClick={() => navigate({ to: user ? "/dashboard" : "/signinandsignup" })}
+          <Button
+            size="lg"
+            className="group gap-2 px-8"
+            onClick={() =>
+              navigate({ to: user ? "/dashboard" : "/signinandsignup" })
+            }
           >
             Get Started
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

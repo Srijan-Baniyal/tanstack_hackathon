@@ -26,7 +26,8 @@ interface CustomCollapsibleProps {
 const STATUS_STYLES: Record<CollapsibleItemStatus, string> = {
   idle: "bg-muted/70 text-muted-foreground",
   running: "bg-primary/10 text-primary",
-  success: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
+  success:
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
   error: "bg-destructive/10 text-destructive",
 };
 

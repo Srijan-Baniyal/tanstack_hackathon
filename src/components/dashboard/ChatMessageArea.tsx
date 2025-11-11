@@ -5,7 +5,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { CustomCollapsible } from "@/components/CustomCollapsible";
-import { VERCEL_MODELS } from "@/lib/models";
 import { useAuthStore } from "@/zustand/AuthStore";
 import { useChatStore } from "@/zustand/ChatStore";
 
@@ -18,7 +17,8 @@ const getUserInitials = (
   if (name) {
     const segments = name.split(/\s+/);
     const first = segments[0]?.[0] ?? "";
-    const last = segments.length > 1 ? segments[segments.length - 1]?.[0] ?? "" : "";
+    const last =
+      segments.length > 1 ? (segments[segments.length - 1]?.[0] ?? "") : "";
     const initials = `${first}${last}`.toUpperCase();
     if (initials.trim()) {
       return initials;
@@ -61,13 +61,9 @@ export default function ChatMessageArea({
       return [];
     }
 
-    const findModelName = (provider: string, modelId?: string | null) => {
+    const findModelName = (_provider: string, modelId?: string | null) => {
       if (!modelId) {
         return "Model auto-select";
-      }
-      if (provider === "vercel") {
-        const match = VERCEL_MODELS.find((model) => model.id === modelId);
-        return match?.name ?? modelId;
       }
       return modelId;
     };
@@ -83,7 +79,8 @@ export default function ChatMessageArea({
     };
 
     return activeAgents.map((agent, index) => {
-      const providerLabel = agent.provider === "vercel" ? "Vercel" : "OpenRouter";
+      const providerLabel =
+        agent.provider === "vercel" ? "Vercel" : "OpenRouter";
       const status = isStreaming ? "running" : "success";
       const statusLabel = isStreaming ? "Running" : "Ready";
       const modelName = findModelName(agent.provider, agent.modelId);
@@ -144,7 +141,10 @@ export default function ChatMessageArea({
               {message.role === "user" && (
                 <Avatar className="size-8 shrink-0">
                   {userAvatarUrl && (
-                    <AvatarImage src={userAvatarUrl} alt={currentUser?.fullName ?? "You"} />
+                    <AvatarImage
+                      src={userAvatarUrl}
+                      alt={currentUser?.fullName ?? "You"}
+                    />
                   )}
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
                     {userInitials}
