@@ -8,6 +8,10 @@ type AuthUser = {
   uuid: string;
   email: string;
   fullName: string;
+  avatarUrl: string | null;
+  providerType: string | null;
+  emailVerified: boolean;
+  lastSignInAt: number | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -38,6 +42,14 @@ type AuthState = {
     ref: ActionReference,
     args?: Record<string, unknown>
   ) => Promise<T>;
+  startOAuth: (
+    provider: "google" | "github"
+  ) => Promise<{ authorizationUrl: string; state: string }>;
+  completeOAuth: (params: {
+    provider: "google" | "github";
+    code: string;
+    state: string;
+  }) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   resetPassword: (params: { token: string; password: string }) => Promise<void>;
   updateProfile: (params: { fullName: string; email: string }) => Promise<void>;
@@ -416,6 +428,34 @@ export const useAuthStore = create<AuthState>()((set, get) => {
       ref: ActionReference,
       args: Record<string, unknown> = {}
     ) => callWithAccessToken<T>(ref, args),
+
+    startOAuth: async (provider) => {
+      const startRef = getAuthRef("startOAuth", "authActions:startOAuth");
+      return (await convexClient.action(startRef, {
+        provider,
+      })) as { authorizationUrl: string; state: string };
+    },
+
+    completeOAuth: async ({ provider, code, state }) => {
+      const completeRef = getAuthRef(
+        "completeOAuth",
+        "authActions:completeOAuth"
+      );
+      set({ isLoading: true });
+      try {
+        const response = (await convexClient.action(completeRef, {
+          provider,
+          code,
+          state,
+        })) as { user: AuthUser; tokens: TokenBundle };
+
+        await persistAuthState(response.user, response.tokens);
+        set({ user: response.user, tokens: response.tokens, isLoading: false });
+      } catch (error) {
+        set({ isLoading: false });
+        throw error;
+      }
+    },
 
     requestPasswordReset: async (email) => {
       const resetRef = getAuthRef(

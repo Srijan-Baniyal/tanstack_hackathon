@@ -12,7 +12,7 @@ import {
 } from "./token";
 import { sendPasswordResetEmail } from "./email";
 import { Id } from "./_generated/dataModel";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { internal } from "./_generated/api";
 
 type SanitizedUser = {
@@ -20,20 +20,361 @@ type SanitizedUser = {
   uuid: string;
   email: string;
   fullName: string;
+  avatarUrl: string | null;
+  providerType: string | null;
+  emailVerified: boolean;
+  lastSignInAt: number | null;
   createdAt: number;
   updatedAt: number;
 };
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
+const trimName = (name: string) => name.trim();
+
 const sanitizeUser = (user: any): SanitizedUser => ({
   id: user._id,
   uuid: user.uuid,
   email: user.email,
   fullName: user.fullName,
+  avatarUrl: user.avatarUrl ?? null,
+  providerType: user.providerType ?? null,
+  emailVerified: user.emailVerified ?? false,
+  lastSignInAt: user.lastSignInAt ?? null,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });
+
+type OAuthProvider = "google" | "github";
+
+type OAuthProfile = {
+  externalId: string;
+  email: string;
+  fullName: string;
+  avatarUrl: string | null;
+  emailVerified: boolean;
+};
+
+const base64UrlEncode = (buffer: Buffer) =>
+  buffer
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+
+const generateCodeVerifier = () => base64UrlEncode(randomBytes(64));
+const generateCodeChallenge = (verifier: string) =>
+  base64UrlEncode(createHash("sha256").update(verifier).digest());
+
+const generateState = () => base64UrlEncode(randomBytes(32));
+
+const requireEnv = (name: string) => {
+  const value = process.env[name as keyof typeof process.env] as
+    | string
+    | undefined;
+  if (!value) {
+    throw new ConvexError(
+      `Missing required environment variable: ${name}. Please set it in your Convex deployment settings.`
+    );
+  }
+  return value;
+};
+
+const optionalEnv = (name: string) =>
+  (process.env[name as keyof typeof process.env] as string | undefined) ??
+  null;
+
+const getRedirectUri = (provider: OAuthProvider) => {
+  const specificKey =
+    provider === "google" ? "GOOGLE_REDIRECT_URI" : "GITHUB_REDIRECT_URI";
+  const configured = optionalEnv(specificKey);
+  if (configured) {
+    return configured;
+  }
+  const baseUrl = optionalEnv("APP_BASE_URL");
+  if (!baseUrl) {
+    throw new ConvexError(
+      `Missing redirect URI configuration. Set ${specificKey} or APP_BASE_URL.`
+    );
+  }
+  return `${baseUrl.replace(/\/$/, "")}/oauth/callback/${provider}`;
+};
+
+const getProviderSecrets = (provider: OAuthProvider) => {
+  if (provider === "google") {
+    return {
+      clientId: requireEnv("GOOGLE_CLIENT_ID"),
+      clientSecret: requireEnv("GOOGLE_CLIENT_SECRET"),
+      redirectUri: getRedirectUri("google"),
+    };
+  }
+  return {
+    clientId: requireEnv("GITHUB_CLIENT_ID"),
+    clientSecret: requireEnv("GITHUB_CLIENT_SECRET"),
+    redirectUri: getRedirectUri("github"),
+  };
+};
+
+const upsertOAuthUser = async (
+  ctx: {
+    runQuery: (internalRef: any, args: any) => Promise<any>;
+    runMutation: (internalRef: any, args: any) => Promise<any>;
+  },
+  provider: OAuthProvider,
+  profile: OAuthProfile
+) => {
+  const normalizedEmail = normalizeEmail(profile.email);
+  if (!normalizedEmail) {
+    throw new ConvexError("Unable to determine email address from provider.");
+  }
+
+  const safeName = trimName(profile.fullName) || normalizedEmail.split("@")[0] || "MeshMind User";
+  const timestamp = Date.now();
+  const providerType = provider;
+  const authInternals = internal.auth as any;
+
+  const existingByProvider = await ctx.runQuery(
+    authInternals.internalGetUserByProvider,
+    {
+      providerType,
+      providerId: profile.externalId,
+    }
+  );
+
+  if (existingByProvider) {
+    await ctx.runMutation(authInternals.internalUpdateUserOAuthProfile, {
+      userId: existingByProvider._id,
+      email: normalizedEmail,
+      fullName: safeName,
+      avatarUrl: profile.avatarUrl ?? undefined,
+      providerType,
+      providerId: profile.externalId,
+      emailVerified: profile.emailVerified,
+      lastSignInAt: timestamp,
+    });
+
+    await ctx.runMutation(authInternals.internalEnsureUserKeys, {
+      userId: existingByProvider._id,
+      timestamp,
+    });
+
+    return await ctx.runQuery(authInternals.internalGetUserById, {
+      userId: existingByProvider._id,
+    });
+  }
+
+  const existingByEmail = await ctx.runQuery(
+    authInternals.internalGetUserByEmail,
+    {
+      email: normalizedEmail,
+    }
+  );
+
+  if (existingByEmail) {
+    await ctx.runMutation(authInternals.internalUpdateUserOAuthProfile, {
+      userId: existingByEmail._id,
+      email: normalizedEmail,
+      fullName: safeName,
+      avatarUrl: profile.avatarUrl ?? undefined,
+      providerType,
+      providerId: profile.externalId,
+      emailVerified: profile.emailVerified,
+      lastSignInAt: timestamp,
+    });
+
+    await ctx.runMutation(authInternals.internalEnsureUserKeys, {
+      userId: existingByEmail._id,
+      timestamp,
+    });
+
+    return await ctx.runQuery(authInternals.internalGetUserById, {
+      userId: existingByEmail._id,
+    });
+  }
+
+  const uuid = randomUUID();
+  const userId = await ctx.runMutation(authInternals.internalCreateUser, {
+    uuid,
+    email: normalizedEmail,
+    fullName: safeName,
+    passwordHash: undefined,
+    providerType,
+    providerId: profile.externalId,
+    avatarUrl: profile.avatarUrl ?? undefined,
+    emailVerified: profile.emailVerified,
+    lastSignInAt: timestamp,
+    createdAt: timestamp,
+  });
+
+  await ctx.runMutation(authInternals.internalEnsureUserKeys, {
+    userId,
+    timestamp,
+  });
+
+  return await ctx.runQuery(authInternals.internalGetUserById, {
+    userId,
+  });
+};
+
+const completeGoogleOAuth = async (params: {
+  code: string;
+  codeVerifier: string;
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}): Promise<OAuthProfile> => {
+  const body = new URLSearchParams({
+    client_id: params.clientId,
+    client_secret: params.clientSecret,
+    code: params.code,
+    redirect_uri: params.redirectUri,
+    grant_type: "authorization_code",
+    code_verifier: params.codeVerifier,
+  });
+
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+
+  const tokenJson = await tokenResponse.json();
+  if (!tokenResponse.ok || !tokenJson.access_token) {
+    const message =
+      tokenJson.error_description || tokenJson.error || "Failed to exchange Google authorization code.";
+    throw new ConvexError(`Google OAuth failed: ${message}`);
+  }
+
+  const userInfoResponse = await fetch(
+    "https://openidconnect.googleapis.com/v1/userinfo",
+    {
+      headers: {
+        Authorization: `Bearer ${tokenJson.access_token}`,
+      },
+    }
+  );
+  const userInfo = await userInfoResponse.json();
+  if (!userInfoResponse.ok) {
+    const message =
+      userInfo.error_description || userInfo.error || "Failed to load Google profile.";
+    throw new ConvexError(`Google OAuth failed: ${message}`);
+  }
+
+  const email = userInfo.email ? normalizeEmail(userInfo.email) : "";
+  if (!email) {
+    throw new ConvexError(
+      "Google did not provide an email address. Ensure the email scope is enabled in your Google OAuth app."
+    );
+  }
+
+  const fullNameRaw =
+    userInfo.name ||
+    `${userInfo.given_name ?? ""} ${userInfo.family_name ?? ""}`.trim() ||
+    email;
+
+  return {
+    externalId: userInfo.sub,
+    email,
+    fullName: fullNameRaw,
+    avatarUrl: (userInfo.picture as string | undefined) ?? null,
+    emailVerified: Boolean(userInfo.email_verified),
+  };
+};
+
+const completeGithubOAuth = async (params: {
+  code: string;
+  codeVerifier: string;
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+  state: string;
+}): Promise<OAuthProfile> => {
+  const tokenResponse = await fetch(
+    "https://github.com/login/oauth/access_token",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        client_id: params.clientId,
+        client_secret: params.clientSecret,
+        code: params.code,
+        redirect_uri: params.redirectUri,
+        code_verifier: params.codeVerifier,
+        state: params.state,
+      }),
+    }
+  );
+
+  const tokenJson = await tokenResponse.json();
+  if (!tokenResponse.ok || !tokenJson.access_token) {
+    const message =
+      tokenJson.error_description || tokenJson.error || "Failed to exchange GitHub authorization code.";
+    throw new ConvexError(`GitHub OAuth failed: ${message}`);
+  }
+
+  const userResponse = await fetch("https://api.github.com/user", {
+    headers: {
+      Authorization: `Bearer ${tokenJson.access_token}`,
+      "User-Agent": "meshmind-app",
+      Accept: "application/vnd.github+json",
+    },
+  });
+  const userInfo = await userResponse.json();
+  if (!userResponse.ok) {
+    const message =
+      userInfo.message || "Failed to load GitHub profile.";
+    throw new ConvexError(`GitHub OAuth failed: ${message}`);
+  }
+
+  let email = userInfo.email ? normalizeEmail(userInfo.email) : "";
+  let emailVerified = Boolean(userInfo.verified);
+
+  if (!email) {
+    const emailsResponse = await fetch("https://api.github.com/user/emails", {
+      headers: {
+        Authorization: `Bearer ${tokenJson.access_token}`,
+        "User-Agent": "meshmind-app",
+        Accept: "application/vnd.github+json",
+      },
+    });
+    if (emailsResponse.ok) {
+      const emails = (await emailsResponse.json()) as Array<{
+        email: string;
+        primary: boolean;
+        verified: boolean;
+      }>;
+      const primary =
+        emails.find((entry) => entry.primary && entry.verified) ??
+        emails.find((entry) => entry.primary) ??
+        emails.find((entry) => entry.verified);
+      if (primary) {
+        email = normalizeEmail(primary.email);
+        emailVerified = Boolean(primary.verified);
+      }
+    }
+  }
+
+  if (!email) {
+    throw new ConvexError(
+      "GitHub did not provide an email address. Ensure the user has a public or primary email or request user:email scope."
+    );
+  }
+
+  const fullNameRaw = (userInfo.name as string | undefined) || userInfo.login || email;
+
+  return {
+    externalId: String(userInfo.id),
+    email,
+    fullName: fullNameRaw,
+    avatarUrl: (userInfo.avatar_url as string | undefined) ?? null,
+    emailVerified,
+  };
+};
 
 const buildTokens = (payload: TokenPayload) => ({
   accessToken: createAccessToken(payload),
@@ -61,7 +402,7 @@ export const signUp: PublicAction = action({
   },
   handler: async (ctx, args) => {
     const email = normalizeEmail(args.email);
-    const fullName = args.fullName.trim();
+    const fullName = trimName(args.fullName);
     if (!fullName) {
       throw new ConvexError("Full name is required.");
     }
@@ -83,6 +424,11 @@ export const signUp: PublicAction = action({
       email,
       fullName,
       passwordHash,
+      providerType: "credentials",
+      providerId: uuid,
+      avatarUrl: undefined,
+      emailVerified: false,
+      lastSignInAt: timestamp,
       createdAt: timestamp,
     });
 
@@ -124,10 +470,21 @@ export const signIn: PublicAction = action({
     if (!user) {
       throw new ConvexError("Invalid email or password.");
     }
+    if (!user.passwordHash) {
+      throw new ConvexError(
+        "This account was created with social sign-in. Continue with Google or GitHub instead."
+      );
+    }
     const valid = await verifyPassword(args.password, user.passwordHash);
     if (!valid) {
       throw new ConvexError("Invalid email or password.");
     }
+
+    const timestamp = Date.now();
+    await ctx.runMutation(internal.auth.internalTouchUserSignIn, {
+      userId: user._id,
+      timestamp,
+    });
 
     const payload: TokenPayload = {
       userId: user._id as string,
@@ -139,6 +496,161 @@ export const signIn: PublicAction = action({
       user: sanitizeUser(user),
       tokens: buildTokens(payload),
     };
+  },
+});
+
+export const startOAuth: PublicAction = action({
+  args: {
+    provider: v.union(v.literal("google"), v.literal("github")),
+  },
+  handler: async (ctx, args) => {
+    const provider = args.provider as OAuthProvider;
+    const { clientId, redirectUri } = getProviderSecrets(provider);
+    const state = generateState();
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = generateCodeChallenge(codeVerifier);
+    const timestamp = Date.now();
+    const expiresAt = timestamp + 10 * 60 * 1000;
+
+    const authInternals = internal.auth as any;
+
+    await ctx.runMutation(authInternals.internalCreateOAuthState, {
+      state,
+      codeVerifier,
+      provider,
+      redirectUri,
+      createdAt: timestamp,
+      expiresAt,
+    });
+
+    await ctx
+      .runMutation(authInternals.internalPruneOAuthStates, {
+        cutoff: timestamp - 60 * 60 * 1000,
+      })
+      .catch(() => undefined);
+
+    let authorizationUrl: string;
+
+    if (provider === "google") {
+      const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+      url.searchParams.set("client_id", clientId);
+      url.searchParams.set("redirect_uri", redirectUri);
+      url.searchParams.set("response_type", "code");
+      url.searchParams.set("scope", "openid email profile");
+      url.searchParams.set("state", state);
+      url.searchParams.set("code_challenge", codeChallenge);
+      url.searchParams.set("code_challenge_method", "S256");
+      url.searchParams.set("access_type", "offline");
+      url.searchParams.set("prompt", "select_account");
+      authorizationUrl = url.toString();
+    } else {
+      const url = new URL("https://github.com/login/oauth/authorize");
+      url.searchParams.set("client_id", clientId);
+      url.searchParams.set("redirect_uri", redirectUri);
+      url.searchParams.set("scope", "read:user user:email");
+      url.searchParams.set("state", state);
+      url.searchParams.set("code_challenge", codeChallenge);
+  url.searchParams.set("code_challenge_method", "S256");
+      url.searchParams.set("allow_signup", "true");
+      authorizationUrl = url.toString();
+    }
+
+    return {
+      authorizationUrl,
+      state,
+    };
+  },
+});
+
+export const completeOAuth: PublicAction = action({
+  args: {
+    provider: v.union(v.literal("google"), v.literal("github")),
+    code: v.string(),
+    state: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const provider = args.provider as OAuthProvider;
+      const authInternals = internal.auth as any;
+
+      const stateRecord = await ctx.runQuery(
+        authInternals.internalGetOAuthState,
+        {
+          state: args.state,
+        }
+      );
+
+      if (!stateRecord) {
+        throw new ConvexError(
+          "OAuth session expired or invalid. Please start the sign-in flow again."
+        );
+      }
+
+      if (stateRecord.provider !== provider) {
+        await ctx.runMutation(authInternals.internalDeleteOAuthState, {
+          stateId: stateRecord._id,
+        });
+        throw new ConvexError(
+          "OAuth provider mismatch. Please restart the sign-in flow."
+        );
+      }
+
+      if (stateRecord.expiresAt < Date.now()) {
+        await ctx.runMutation(authInternals.internalDeleteOAuthState, {
+          stateId: stateRecord._id,
+        });
+        throw new ConvexError("OAuth session expired. Please try again.");
+      }
+
+      await ctx.runMutation(authInternals.internalDeleteOAuthState, {
+        stateId: stateRecord._id,
+      });
+
+      const { clientId, clientSecret, redirectUri } =
+        getProviderSecrets(provider);
+
+      const profile =
+        provider === "google"
+          ? await completeGoogleOAuth({
+              code: args.code,
+              codeVerifier: stateRecord.codeVerifier,
+              clientId,
+              clientSecret,
+              redirectUri,
+            })
+          : await completeGithubOAuth({
+              code: args.code,
+              codeVerifier: stateRecord.codeVerifier,
+              clientId,
+              clientSecret,
+              redirectUri,
+              state: args.state,
+            });
+
+      const user = await upsertOAuthUser(ctx, provider, profile);
+      if (!user) {
+        throw new ConvexError("Unable to create or update user account.");
+      }
+
+      const payload: TokenPayload = {
+        userId: user._id as string,
+        uuid: user.uuid,
+        email: user.email,
+      };
+
+      return {
+        user: sanitizeUser(user),
+        tokens: buildTokens(payload),
+      };
+    } catch (error) {
+      if (error instanceof ConvexError) {
+        throw error;
+      }
+      console.error("completeOAuth failed", error);
+      throw new ConvexError(
+        "Could not complete social sign-in. Please try again."
+      );
+    }
   },
 });
 
@@ -311,6 +823,12 @@ export const changePassword: PublicAction = action({
       throw new ConvexError("User not found.");
     }
 
+    if (!user.passwordHash) {
+      throw new ConvexError(
+        "This account was created with social sign-in. Use the reset password flow to set a password first."
+      );
+    }
+
     const valid = await verifyPassword(args.currentPassword, user.passwordHash);
     if (!valid) {
       throw new ConvexError("Current password is incorrect.");
@@ -350,15 +868,6 @@ export const upsertUserKeys: PublicAction = action({
     keys: v.object({
       vercelKey: v.optional(v.string()),
       openrouterKey: v.optional(v.string()),
-      grokKey: v.optional(v.string()),
-      anthropicKey: v.optional(v.string()),
-      geminiKey: v.optional(v.string()),
-      glmKey: v.optional(v.string()),
-      openaiKey: v.optional(v.string()),
-      perplexityKey: v.optional(v.string()),
-      qwenKey: v.optional(v.string()),
-      kimiKey: v.optional(v.string()),
-      deepseekKey: v.optional(v.string()),
     }),
   },
   handler: async (ctx, args) => {

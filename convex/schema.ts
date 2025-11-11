@@ -1,31 +1,42 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+const webSearchEnum = v.union(
+  v.literal("none"),
+  v.literal("native"),
+  v.literal("firecrawl")
+);
+
+const agentConfigValidator = v.object({
+  provider: v.string(),
+  modelId: v.optional(v.string()),
+  systemPrompt: v.string(),
+  webSearch: v.optional(webSearchEnum),
+});
+
 export default defineSchema({
   users: defineTable({
     uuid: v.string(),
     email: v.string(),
     fullName: v.string(),
-    passwordHash: v.string(),
+    passwordHash: v.optional(v.string()),
+    providerType: v.optional(v.string()),
+    providerId: v.optional(v.string()),
+    avatarUrl: v.optional(v.string()),
+    emailVerified: v.optional(v.boolean()),
+    lastSignInAt: v.optional(v.number()),
     resetToken: v.optional(v.string()),
     resetTokenExpiresAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_email", ["email"]),
+  })
+    .index("by_email", ["email"])
+    .index("by_provider", ["providerType", "providerId"]),
 
   userKeys: defineTable({
     userId: v.id("users"),
     vercelKey: v.optional(v.string()),
     openrouterKey: v.optional(v.string()),
-    grokKey: v.optional(v.string()),
-    anthropicKey: v.optional(v.string()),
-    geminiKey: v.optional(v.string()),
-    glmKey: v.optional(v.string()),
-    openaiKey: v.optional(v.string()),
-    perplexityKey: v.optional(v.string()),
-    qwenKey: v.optional(v.string()),
-    kimiKey: v.optional(v.string()),
-    deepseekKey: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
@@ -36,6 +47,7 @@ export default defineSchema({
     preview: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
+    agentConfigs: v.optional(v.array(agentConfigValidator)),
   }).index("by_user", ["userId", "updatedAt"]),
 
   messages: defineTable({
@@ -45,4 +57,13 @@ export default defineSchema({
     content: v.string(),
     createdAt: v.number(),
   }).index("by_chat", ["chatId", "createdAt"]),
+
+  oauthStates: defineTable({
+    state: v.string(),
+    codeVerifier: v.string(),
+    provider: v.string(),
+    redirectUri: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  }).index("by_state", ["state"]),
 });

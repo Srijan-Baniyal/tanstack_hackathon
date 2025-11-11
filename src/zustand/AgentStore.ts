@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import {
+  DEFAULT_SYSTEM_PROMPT,
   VERCEL_MODELS,
   fetchOpenRouterModels,
   type Model,
@@ -19,6 +20,7 @@ export interface AgentConfig {
   modelId?: string;
   systemPromptKey: SystemPromptKey;
   webSearch?: "none" | "native" | "firecrawl";
+  systemPromptOverride?: string;
 }
 
 export interface PreparedAgentConfig {
@@ -44,14 +46,19 @@ type AgentStoreState = {
   ) => void;
   ensureOpenRouterModels: (openRouterKey: string) => Promise<void>;
   validateSystemPromptKeys: (customPromptCount: number) => void;
+  hydrateFromPreparedAgents: (
+    agents: PreparedAgentConfig[],
+    systemPrompts: string[]
+  ) => void;
   resetAgents: () => void;
 };
 
 const createAgentConfig = (): AgentConfig => ({
   provider: "vercel",
-  modelId: DEFAULT_VERCEL_MODEL_ID,
+  modelId: undefined,
   systemPromptKey: DEFAULT_PROMPT_KEY,
   webSearch: "none",
+  systemPromptOverride: undefined,
 });
 
 const initialState: Pick<
@@ -142,7 +149,11 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
       }
 
       const nextConfigs = [...state.agentConfigs];
-      nextConfigs[index] = { ...nextConfigs[index], systemPromptKey: key };
+      nextConfigs[index] = {
+        ...nextConfigs[index],
+        systemPromptKey: key,
+        systemPromptOverride: undefined,
+      };
       return { agentConfigs: nextConfigs };
     });
   },
@@ -183,12 +194,83 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         if (agent.systemPromptKey.startsWith("custom-")) {
           const index = Number(agent.systemPromptKey.split("-")[1]);
           if (!Number.isFinite(index) || index >= customPromptCount) {
-            return { ...agent, systemPromptKey: DEFAULT_PROMPT_KEY };
+            return {
+              ...agent,
+              systemPromptKey: DEFAULT_PROMPT_KEY,
+              systemPromptOverride: undefined,
+            };
           }
         }
         return agent;
       });
       return { agentConfigs: nextConfigs };
+    });
+  },
+
+  hydrateFromPreparedAgents: (agents, systemPrompts) => {
+    set(() => {
+      if (!Array.isArray(agents) || agents.length === 0) {
+        return {
+          agentCount: initialState.agentCount,
+          agentConfigs: Array.from(
+            { length: initialState.agentCount },
+            createAgentConfig
+          ),
+        };
+      }
+
+      const deriveKey = (prompt: string): {
+        key: SystemPromptKey;
+        override?: string;
+      } => {
+        if (!prompt.trim()) {
+          return { key: NONE_PROMPT_KEY };
+        }
+        if (prompt === DEFAULT_SYSTEM_PROMPT) {
+          return { key: DEFAULT_PROMPT_KEY };
+        }
+
+        const matchedIndex = systemPrompts.findIndex(
+          (stored) => stored === prompt
+        );
+
+        if (matchedIndex >= 0) {
+          return {
+            key: `custom-${matchedIndex}` as SystemPromptKey,
+          };
+        }
+
+        return { key: NONE_PROMPT_KEY, override: prompt };
+      };
+
+      const nextAgents = agents.slice(0, MAX_AGENTS).map((agent) => {
+        const { key, override } = deriveKey(agent.systemPrompt ?? "");
+        const provider: ProviderType =
+          agent.provider === "openrouter" ? "openrouter" : "vercel";
+        const webSearch =
+          agent.webSearch === "native" || agent.webSearch === "firecrawl"
+            ? agent.webSearch
+            : "none";
+
+        const config: AgentConfig = {
+          provider,
+          modelId: agent.modelId,
+          systemPromptKey: key,
+          webSearch,
+          systemPromptOverride: override,
+        };
+
+        return config;
+      });
+
+      const count = nextAgents.length > 0 ? nextAgents.length : 1;
+      return {
+        agentCount: count,
+        agentConfigs:
+          nextAgents.length > 0
+            ? nextAgents
+            : Array.from({ length: count }, createAgentConfig),
+      };
     });
   },
 

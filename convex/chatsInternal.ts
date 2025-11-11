@@ -1,6 +1,19 @@
 import { internalMutation, internalQuery } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 
+const webSearchEnum = v.union(
+  v.literal("none"),
+  v.literal("native"),
+  v.literal("firecrawl")
+);
+
+const agentConfigValidator = v.object({
+  provider: v.string(),
+  modelId: v.optional(v.string()),
+  systemPrompt: v.string(),
+  webSearch: v.optional(webSearchEnum),
+});
+
 export const internalListChatsByUser = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
@@ -36,6 +49,7 @@ export const internalInsertChat = internalMutation({
     title: v.string(),
     preview: v.string(),
     timestamp: v.number(),
+    agentConfigs: v.optional(v.array(agentConfigValidator)),
   },
   handler: async (ctx, args) => {
     return ctx.db.insert("chats", {
@@ -44,6 +58,7 @@ export const internalInsertChat = internalMutation({
       preview: args.preview,
       createdAt: args.timestamp,
       updatedAt: args.timestamp,
+      agentConfigs: args.agentConfigs ?? [],
     });
   },
 });
@@ -77,6 +92,20 @@ export const internalUpdateChatPreview = internalMutation({
   handler: async (ctx, args) => {
     await ctx.db.patch(args.chatId, {
       preview: args.preview,
+      updatedAt: args.timestamp,
+    });
+  },
+});
+
+export const internalUpdateAgentConfigs = internalMutation({
+  args: {
+    chatId: v.id("chats"),
+    agentConfigs: v.array(agentConfigValidator),
+    timestamp: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.chatId, {
+      agentConfigs: args.agentConfigs,
       updatedAt: args.timestamp,
     });
   },

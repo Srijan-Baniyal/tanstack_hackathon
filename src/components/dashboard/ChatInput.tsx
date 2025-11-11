@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -12,9 +12,20 @@ import { getSettings } from "@/lib/settings";
 import {
   DEFAULT_SYSTEM_PROMPT,
   VERCEL_MODELS,
+  useOpenRouterModels,
   type ProviderType,
 } from "@/lib/models";
-import { Send } from "lucide-react";
+import { Send, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import {
   DEFAULT_PROMPT_KEY,
   MAX_AGENTS,
@@ -24,6 +35,7 @@ import {
   type PreparedAgentConfig,
   type SystemPromptKey,
 } from "@/zustand/AgentStore";
+import { useChatStore } from "@/zustand/ChatStore";
 
 interface ChatInputProps {
   onSendMessage?: (
@@ -45,17 +57,35 @@ export default function ChatInput({
   const {
     agentCount,
     agentConfigs,
-    openRouterModels,
-    isLoadingOpenRouterModels,
-    openRouterError,
     setAgentCount: updateAgentCount,
     setProvider: updateProvider,
     setModelId: updateModelId,
     setSystemPromptKey: updateSystemPromptKey,
     setWebSearch: updateWebSearch,
-    ensureOpenRouterModels: ensureOpenRouterModelsFromStore,
     validateSystemPromptKeys,
+    hydrateFromPreparedAgents: hydrateAgents,
+    resetAgents,
   } = useAgentStore();
+  const selectedChatId = useChatStore((state) => state.selectedChatId);
+  const isNewChatMode = useChatStore((state) => state.isNewChatMode);
+  const saveAgentConfiguration = useChatStore(
+    (state) => state.saveAgentConfiguration
+  );
+  const lastPersistedSignatureRef = useRef<string>("");
+
+  // Use React Query hook for OpenRouter models
+  const {
+    data: openRouterModels = [],
+    isLoading: isLoadingOpenRouterModels,
+    error: openRouterQueryError,
+    isFetching: isRefetchingOpenRouter,
+  } = useOpenRouterModels(settings.openRouterKey);
+
+  const openRouterError = openRouterQueryError
+    ? openRouterQueryError instanceof Error
+      ? openRouterQueryError.message
+      : "Failed to load models"
+    : null;
 
   useEffect(() => {
     const refreshSettings = () => {
@@ -87,21 +117,45 @@ export default function ChatInput({
     validateSystemPromptKeys(systemPrompts.length);
   }, [systemPrompts.length, validateSystemPromptKeys]);
 
+  useEffect(() => {
+    if (!selectedChatId || isNewChatMode) {
+      resetAgents();
+      lastPersistedSignatureRef.current = "";
+      return;
+    }
+
+    const conversations = useChatStore.getState().conversations;
+    const target = conversations.find((chat) => chat.id === selectedChatId);
+    if (!target) {
+      return;
+    }
+
+    const prepared = target.agentConfigs.map((agent) => ({
+      provider: agent.provider,
+      modelId: agent.modelId,
+      systemPrompt: agent.systemPrompt,
+      webSearch: agent.webSearch,
+    }));
+
+    hydrateAgents(prepared, systemPrompts);
+    lastPersistedSignatureRef.current = JSON.stringify(prepared);
+  }, [selectedChatId, isNewChatMode, hydrateAgents, resetAgents, systemPrompts]);
+
   const systemPromptOptions = useMemo(
     () => [
       {
         value: DEFAULT_PROMPT_KEY,
-        label: "Helpful Assistant",
+        label: DEFAULT_SYSTEM_PROMPT,
         preview: DEFAULT_SYSTEM_PROMPT,
       },
       {
         value: NONE_PROMPT_KEY,
-        label: "No prompt",
+        label: "No system prompt",
         preview: "No system prompt will be sent.",
       },
       ...systemPrompts.map((prompt, index) => ({
         value: `custom-${index}` as SystemPromptKey,
-        label: `Custom ${index + 1}`,
+        label: prompt,
         preview: prompt,
       })),
     ],
@@ -143,36 +197,116 @@ export default function ChatInput({
     []
   );
 
+  const currentSystemPromptKey =
+    agentConfigs[0]?.systemPromptKey ?? DEFAULT_PROMPT_KEY;
+  const currentWebSearch = agentConfigs[0]?.webSearch ?? "none";
+
+  const persistAgentConfiguration = useCallback(() => {
+    if (!selectedChatId || isNewChatMode) {
+      return;
+    }
+
+    const preparedAgents: PreparedAgentConfig[] = agentConfigs.map((agent) => ({
+      provider: agent.provider,
+      modelId: agent.modelId,
+      systemPrompt:
+        agent.systemPromptOverride ?? resolveSystemPrompt(agent.systemPromptKey),
+      webSearch: agent.webSearch,
+    }));
+
+    const nextSignature = JSON.stringify(preparedAgents);
+    if (nextSignature === lastPersistedSignatureRef.current) {
+      return;
+    }
+
+    lastPersistedSignatureRef.current = nextSignature;
+    void saveAgentConfiguration(selectedChatId, preparedAgents);
+  }, [
+    agentConfigs,
+    isNewChatMode,
+    resolveSystemPrompt,
+    saveAgentConfiguration,
+    selectedChatId,
+  ]);
+
   const handleAgentCountChange = (value: string) => {
     const nextCount = Number(value);
     if (Number.isNaN(nextCount) || nextCount < 1) return;
     updateAgentCount(nextCount);
+    setTimeout(persistAgentConfiguration, 0);
   };
 
   const handleProviderChange = (index: number, provider: ProviderType) => {
     updateProvider(index, provider);
+    setTimeout(persistAgentConfiguration, 0);
   };
 
   const handleModelChange = (index: number, modelId: string) => {
     updateModelId(index, modelId);
+    setTimeout(persistAgentConfiguration, 0);
   };
 
-  const handleSystemPromptChange = (index: number, key: SystemPromptKey) => {
-    updateSystemPromptKey(index, key);
+  const handleSystemPromptChangeAll = (key: SystemPromptKey) => {
+    agentConfigs.forEach((agent, index) => {
+      if (agent.systemPromptKey !== key) {
+        updateSystemPromptKey(index, key);
+      }
+    });
+    setTimeout(persistAgentConfiguration, 0);
   };
 
-  const handleWebSearchChange = (
-    index: number,
+  const handleWebSearchChangeAll = (
     value: "none" | "native" | "firecrawl"
   ) => {
-    updateWebSearch(index, value);
+    agentConfigs.forEach((agent, index) => {
+      const next = agent.webSearch ?? "none";
+      if (next !== value) {
+        updateWebSearch(index, value);
+      }
+    });
+    setTimeout(persistAgentConfiguration, 0);
   };
 
   useEffect(() => {
-    if (agentConfigs.some((agent) => agent.provider === "openrouter")) {
-      void ensureOpenRouterModelsFromStore(settings.openRouterKey);
+    if (agentConfigs.length <= 1) {
+      return;
     }
-  }, [agentConfigs, ensureOpenRouterModelsFromStore, settings.openRouterKey]);
+
+    agentConfigs.forEach((agent, index) => {
+      if (index === 0) return;
+      if (agent.systemPromptKey !== currentSystemPromptKey) {
+        updateSystemPromptKey(index, currentSystemPromptKey);
+      }
+      const current = agent.webSearch ?? "none";
+      if (current !== currentWebSearch) {
+        updateWebSearch(index, currentWebSearch);
+      }
+    });
+  }, [
+    agentConfigs.length,
+    currentSystemPromptKey,
+    currentWebSearch,
+    updateSystemPromptKey,
+    updateWebSearch,
+  ]);
+
+  useEffect(() => {
+    agentConfigs.forEach((agent, index) => {
+      const models = getModelsForAgent(agent);
+      if (models.length === 0) {
+        return;
+      }
+
+      const hasSelectedModel = agent.modelId
+        ? models.some((model) => model.id === agent.modelId)
+        : false;
+
+      if (!hasSelectedModel) {
+        updateModelId(index, models[0]!.id);
+      }
+    });
+    setTimeout(persistAgentConfiguration, 0);
+  }, [agentConfigs, getModelsForAgent, updateModelId]);
 
   const handleSend = () => {
     const trimmed = message.trim();
@@ -183,7 +317,8 @@ export default function ChatInput({
     const preparedAgents: PreparedAgentConfig[] = agentConfigs.map((agent) => ({
       provider: agent.provider,
       modelId: agent.modelId,
-      systemPrompt: resolveSystemPrompt(agent.systemPromptKey),
+      systemPrompt:
+        agent.systemPromptOverride ?? resolveSystemPrompt(agent.systemPromptKey),
       webSearch: agent.webSearch,
     }));
 
@@ -219,18 +354,17 @@ export default function ChatInput({
 
   return (
     <div className="space-y-2 p-3">
-      {/* Agent Count Selector - Shows separately when multiple agents */}
-      {agentCount > 1 && (
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">
-            Number of Agents:
-          </span>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <div className="space-y-0.5">
+          <label className="text-[10px] text-muted-foreground">
+            No. of Agents
+          </label>
           <Select
             value={String(agentCount)}
             onValueChange={handleAgentCountChange}
           >
-            <SelectTrigger className="h-8 w-16 text-xs">
-              <SelectValue />
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Choose No." />
             </SelectTrigger>
             <SelectContent>
               {agentCountOptions.map((option) => (
@@ -241,7 +375,51 @@ export default function ChatInput({
             </SelectContent>
           </Select>
         </div>
-      )}
+
+        <div className="space-y-0.5">
+          <label className="text-[10px] text-muted-foreground">
+            System Prompt
+          </label>
+          <Select
+            value={currentSystemPromptKey}
+            onValueChange={(value) =>
+              handleSystemPromptChangeAll(value as SystemPromptKey)
+            }
+          >
+            <SelectTrigger className="h-8 text-xs max-w-full">
+              <SelectValue placeholder="Choose Sys Prompt" className="truncate" />
+            </SelectTrigger>
+            <SelectContent className="max-w-[300px]">
+              {systemPromptOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  <span className="truncate block max-w-[260px]">{option.label}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-0.5">
+          <label className="text-[10px] text-muted-foreground">
+            Web Search
+          </label>
+          <Select
+            value={currentWebSearch}
+            onValueChange={(value) =>
+              handleWebSearchChangeAll(value as "none" | "native" | "firecrawl")
+            }
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Choose Search" className="truncate" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              <SelectItem value="native">Native</SelectItem>
+              <SelectItem value="firecrawl">Firecrawl</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       {/* Agent Configurations */}
       <div
@@ -249,7 +427,7 @@ export default function ChatInput({
       >
   {agentConfigs.map((agent, index) => {
           const models = getModelsForAgent(agent);
-          const modelValue = models.some((model) => model.id === agent.modelId)
+          const modelValue = agent.modelId && models.some((model) => model.id === agent.modelId)
             ? agent.modelId
             : undefined;
           const isOpenRouter = agent.provider === "openrouter";
@@ -258,10 +436,10 @@ export default function ChatInput({
               ? "Loading..."
               : models.length === 0
                 ? (openRouterError ?? "No models")
-                : "Select model"
+                : "Choose Model"
             : models.length === 0
               ? "No models"
-              : "Select model";
+              : "Choose Model";
 
           return (
             <div key={`agent-${index}`} className="space-y-1.5">
@@ -272,29 +450,6 @@ export default function ChatInput({
               )}
 
               <div className="flex flex-wrap items-end gap-1.5">
-                {index === 0 && agentCount === 1 && (
-                  <div className="space-y-0.5">
-                    <label className="text-[10px] text-muted-foreground">
-                      Agents
-                    </label>
-                    <Select
-                      value={String(agentCount)}
-                      onValueChange={handleAgentCountChange}
-                    >
-                      <SelectTrigger className="h-8 w-16 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {agentCountOptions.map((option) => (
-                          <SelectItem key={option} value={String(option)}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
                 <div className="min-w-[120px] flex-1 space-y-0.5">
                   <label className="text-[10px] text-muted-foreground">
                     Provider
@@ -306,7 +461,7 @@ export default function ChatInput({
                     }
                   >
                     <SelectTrigger className="h-8 text-xs">
-                      <SelectValue />
+                      <SelectValue placeholder="Choose Provider" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="vercel">Vercel</SelectItem>
@@ -316,8 +471,11 @@ export default function ChatInput({
                 </div>
 
                 <div className="min-w-[140px] flex-1 space-y-0.5">
-                  <label className="text-[10px] text-muted-foreground">
+                  <label className="text-[10px] text-muted-foreground flex items-center gap-1">
                     Model
+                    {isOpenRouter && isRefetchingOpenRouter && (
+                      <RefreshCw className="h-2.5 w-2.5 animate-spin" />
+                    )}
                   </label>
                   <Select
                     disabled={models.length === 0}
@@ -337,52 +495,6 @@ export default function ChatInput({
                   </Select>
                 </div>
 
-                <div className="min-w-[120px] flex-1 space-y-0.5">
-                  <label className="text-[10px] text-muted-foreground">
-                    System Prompt
-                  </label>
-                  <Select
-                    value={agent.systemPromptKey}
-                    onValueChange={(value) =>
-                      handleSystemPromptChange(index, value as SystemPromptKey)
-                    }
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {systemPromptOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="min-w-[100px] space-y-0.5">
-                  <label className="text-[10px] text-muted-foreground">
-                    Web Search
-                  </label>
-                  <Select
-                    value={agent.webSearch ?? "none"}
-                    onValueChange={(value) =>
-                      handleWebSearchChange(
-                        index,
-                        value as "none" | "native" | "firecrawl"
-                      )
-                    }
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      <SelectItem value="native">Native</SelectItem>
-                      <SelectItem value="firecrawl">Firecrawl</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
 
               {isOpenRouter && openRouterError && (

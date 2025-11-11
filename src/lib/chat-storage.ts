@@ -15,6 +15,7 @@ export interface Chat {
   messages: Message[];
   createdAt: number;
   updatedAt: number;
+  agentConfigs: StoredAgentConfig[];
 }
 
 export interface ServerMessage {
@@ -33,6 +34,14 @@ export interface ServerChat {
   createdAt: number;
   updatedAt: number;
   messages: ServerMessage[];
+  agentConfigs?: StoredAgentConfig[];
+}
+
+export interface StoredAgentConfig {
+  provider: "vercel" | "openrouter";
+  modelId?: string;
+  systemPrompt: string;
+  webSearch?: "none" | "native" | "firecrawl";
 }
 
 export const formatTimestamp = (timestamp: number) => {
@@ -68,6 +77,14 @@ export const mapServerChat = (chat: ServerChat): Chat => {
     })),
     createdAt: chat.createdAt,
     updatedAt: chat.updatedAt,
+    agentConfigs: Array.isArray(chat.agentConfigs)
+      ? chat.agentConfigs.map((config) => ({
+          provider: config.provider,
+          modelId: config.modelId ?? undefined,
+          systemPrompt: config.systemPrompt,
+          webSearch: config.webSearch ?? undefined,
+        }))
+      : [],
   };
 };
 

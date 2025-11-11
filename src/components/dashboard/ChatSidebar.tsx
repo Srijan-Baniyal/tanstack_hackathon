@@ -50,10 +50,26 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { Chat } from "@/lib/chat-storage";
 import { toast } from "sonner";
 import { useAuthStore } from "@/zustand/AuthStore";
 import { useChatStore } from "@/zustand/ChatStore";
+
+const getInitials = (fullName: string, email: string) => {
+  const trimmed = fullName.trim();
+  if (trimmed) {
+    const parts = trimmed.split(/\s+/);
+    const first = parts[0]?.[0] ?? "";
+    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? "" : "";
+    const combined = `${first}${last}`.toUpperCase();
+    if (combined.trim()) {
+      return combined;
+    }
+  }
+  const fallback = email.split("@")[0] ?? "";
+  return fallback.slice(0, 2).toUpperCase() || "MM";
+};
 
 // Zod schemas
 const renameChatSchema = z.object({
@@ -400,7 +416,18 @@ export default function ChatSidebar({
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <SidebarMenuButton className="h-auto py-3 px-3 rounded-xl hover:bg-sidebar-accent transition-colors w-full group/footer">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Avatar className="size-9 shrink-0">
+                          {user.avatarUrl && (
+                            <AvatarImage
+                              src={user.avatarUrl}
+                              alt={user.fullName}
+                            />
+                          )}
+                          <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+                            {getInitials(user.fullName, user.email)}
+                          </AvatarFallback>
+                        </Avatar>
                         <div className="flex flex-col flex-1 min-w-0 gap-1">
                           <span className="font-semibold text-sm truncate">
                             {user.fullName}

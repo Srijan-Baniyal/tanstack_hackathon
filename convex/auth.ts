@@ -7,7 +7,12 @@ export const internalCreateUser = internalMutation({
     uuid: v.string(),
     email: v.string(),
     fullName: v.string(),
-    passwordHash: v.string(),
+    passwordHash: v.optional(v.string()),
+    providerType: v.optional(v.string()),
+    providerId: v.optional(v.string()),
+    avatarUrl: v.optional(v.string()),
+    emailVerified: v.optional(v.boolean()),
+    lastSignInAt: v.optional(v.number()),
     createdAt: v.number(),
   },
   handler: async (ctx, args) => {
@@ -16,6 +21,11 @@ export const internalCreateUser = internalMutation({
       email: args.email,
       fullName: args.fullName,
       passwordHash: args.passwordHash,
+      providerType: args.providerType,
+      providerId: args.providerId,
+      avatarUrl: args.avatarUrl,
+      emailVerified: args.emailVerified,
+      lastSignInAt: args.lastSignInAt,
       resetToken: undefined,
       resetTokenExpiresAt: undefined,
       createdAt: args.createdAt,
@@ -41,15 +51,6 @@ export const internalEnsureUserKeys = internalMutation({
       userId: args.userId,
       vercelKey: undefined,
       openrouterKey: undefined,
-      grokKey: undefined,
-      anthropicKey: undefined,
-      geminiKey: undefined,
-      glmKey: undefined,
-      openaiKey: undefined,
-      perplexityKey: undefined,
-      qwenKey: undefined,
-      kimiKey: undefined,
-      deepseekKey: undefined,
       createdAt: args.timestamp,
       updatedAt: args.timestamp,
     });
@@ -78,6 +79,21 @@ export const internalGetUserByIdString = internalQuery({
   handler: async (ctx, args) => {
     const id = args.userId as Id<"users">;
     return ctx.db.get(id);
+  },
+});
+
+export const internalGetUserByProvider = internalQuery({
+  args: {
+    providerType: v.string(),
+    providerId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const query = (ctx.db as any).query("users");
+    return query
+      .withIndex("by_provider", (q: any) =>
+        q.eq("providerType", args.providerType).eq("providerId", args.providerId)
+      )
+      .unique();
   },
 });
 
@@ -133,14 +149,111 @@ export const internalUpdateUserProfile = internalMutation({
     userId: v.id("users"),
     email: v.string(),
     fullName: v.string(),
+    avatarUrl: v.optional(v.string()),
     timestamp: v.number(),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.userId, {
       email: args.email,
       fullName: args.fullName,
+      avatarUrl: args.avatarUrl ?? undefined,
       updatedAt: args.timestamp,
     });
+  },
+});
+
+export const internalUpdateUserOAuthProfile = internalMutation({
+  args: {
+    userId: v.id("users"),
+    email: v.string(),
+    fullName: v.string(),
+    avatarUrl: v.optional(v.string()),
+    providerType: v.string(),
+    providerId: v.string(),
+    emailVerified: v.optional(v.boolean()),
+    lastSignInAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      email: args.email,
+      fullName: args.fullName,
+      avatarUrl: args.avatarUrl,
+      providerType: args.providerType,
+      providerId: args.providerId,
+      emailVerified: args.emailVerified,
+      lastSignInAt: args.lastSignInAt,
+      updatedAt: args.lastSignInAt,
+    });
+  },
+});
+
+export const internalTouchUserSignIn = internalMutation({
+  args: {
+    userId: v.id("users"),
+    timestamp: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      lastSignInAt: args.timestamp,
+      updatedAt: args.timestamp,
+    });
+  },
+});
+
+export const internalCreateOAuthState = internalMutation({
+  args: {
+    state: v.string(),
+    codeVerifier: v.string(),
+    provider: v.string(),
+    redirectUri: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("oauthStates", {
+      state: args.state,
+      codeVerifier: args.codeVerifier,
+      provider: args.provider,
+      redirectUri: args.redirectUri,
+      createdAt: args.createdAt,
+      expiresAt: args.expiresAt,
+    });
+  },
+});
+
+export const internalGetOAuthState = internalQuery({
+  args: {
+    state: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const query = (ctx.db as any).query("oauthStates");
+    return query
+      .withIndex("by_state", (q: any) => q.eq("state", args.state))
+      .unique();
+  },
+});
+
+export const internalDeleteOAuthState = internalMutation({
+  args: {
+    stateId: v.id("oauthStates"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.stateId);
+  },
+});
+
+export const internalPruneOAuthStates = internalMutation({
+  args: {
+    cutoff: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const query = (ctx.db as any).query("oauthStates");
+    const expired = await query
+      .filter((q: any) => q.lt(q.field("expiresAt"), args.cutoff))
+      .collect();
+    await Promise.all(
+      expired.map((record: any) => ctx.db.delete(record._id))
+    );
   },
 });
 

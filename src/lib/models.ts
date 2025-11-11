@@ -213,8 +213,12 @@ export async function fetchOpenRouterModels(apiKey?: string): Promise<Model[]> {
           }))
         : [];
 
-      openRouterModelsCache = mapped;
-      return mapped;
+      const sorted = mapped.sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      );
+
+      openRouterModelsCache = sorted;
+      return sorted;
     } catch (error) {
       const detail = axios.isAxiosError(error)
         ? `${error.response?.status ?? ""} ${error.response?.statusText ?? ""}`.trim()
@@ -251,8 +255,12 @@ export async function fetchOpenRouterModels(apiKey?: string): Promise<Model[]> {
         },
       ];
 
-      openRouterModelsCache = fallback;
-      return fallback;
+      const sortedFallback = fallback.sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      );
+
+      openRouterModelsCache = sortedFallback;
+      return sortedFallback;
     } finally {
       openRouterFetchPromise = null;
     }
@@ -275,7 +283,11 @@ export function useOpenRouterModels(
   return useQuery<Model[], Error>({
     queryKey: ["openRouterModels", apiKey ?? null],
     queryFn: () => fetchOpenRouterModels(apiKey),
-    staleTime: 10 * 60 * 1000,
+    staleTime: 60 * 1000, // Data stays fresh for 1 minute
+    refetchInterval: 60 * 1000, // Refetch every 1 minute
+    refetchIntervalInBackground: true, // Continue refetching even when tab is not focused
     gcTime: 30 * 60 * 1000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 }

@@ -10,6 +10,7 @@ import {
   type Chat,
   type Message,
   type ServerChat,
+  type StoredAgentConfig,
 } from "@/lib/chat-storage";
 import type { PreparedAgentConfig } from "@/zustand/AgentStore";
 import { useAuthStore } from "@/zustand/AuthStore";
@@ -29,6 +30,10 @@ type ChatStoreState = {
   renameChat: (chatId: string, newTitle: string) => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
   sendMessage: (message: string, agents?: PreparedAgentConfig[]) => Promise<void>;
+  saveAgentConfiguration: (
+    chatId: string,
+    agents: PreparedAgentConfig[]
+  ) => Promise<void>;
   reset: () => void;
 };
 
@@ -43,6 +48,10 @@ const AI_RESPONSES = [
   "Cheers! I've got just the solution for you, mate.",
 ];
 
+type ServerChatWithAgents = ServerChat & {
+  agentConfigs?: StoredAgentConfig[];
+};
+
 const getChatsRef = (name: string, fallback: string): ActionReference => {
   const chatsModule = (api as Record<string, unknown> | undefined)
     ?.chats as Record<string, ActionReference> | undefined;
@@ -55,6 +64,26 @@ const toUIMessage = (message: Message): UIMessage => ({
   role: message.role,
   parts: [{ type: "text" as const, text: message.content }],
 });
+
+const mapToPreparedAgents = (
+  agents: StoredAgentConfig[]
+): PreparedAgentConfig[] =>
+  agents.map((agent) => ({
+    provider: agent.provider,
+    modelId: agent.modelId,
+    systemPrompt: agent.systemPrompt,
+    webSearch: agent.webSearch,
+  }));
+
+const mapToStoredAgents = (
+  agents: PreparedAgentConfig[]
+): StoredAgentConfig[] =>
+  agents.map((agent) => ({
+    provider: agent.provider,
+    modelId: agent.modelId,
+    systemPrompt: agent.systemPrompt,
+    webSearch: agent.webSearch,
+  }));
 
 const initialState: Pick<
   ChatStoreState,
@@ -97,7 +126,8 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
         isNewChatMode: chats.length === 0,
         messages: chats.length > 0 ? chats[0].messages.map(toUIMessage) : [],
         isStreaming: false,
-        activeAgents: [],
+        activeAgents:
+          chats.length > 0 ? mapToPreparedAgents(chats[0].agentConfigs) : [],
       });
     } catch (error) {
       console.error("Failed to load chats", error);
@@ -138,7 +168,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
       isNewChatMode: false,
       messages: target.messages.map(toUIMessage),
       isStreaming: false,
-      activeAgents: [],
+      activeAgents: mapToPreparedAgents(target.agentConfigs),
     });
   },
 
@@ -219,7 +249,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
           isNewChatMode: false,
           messages: nextChat.messages.map(toUIMessage),
           isStreaming: false,
-          activeAgents: [],
+          activeAgents: mapToPreparedAgents(nextChat.agentConfigs),
         };
       });
 
@@ -284,7 +314,8 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
             ? `${tentativeTitle.slice(0, 60)}...`
             : tentativeTitle;
 
-        const created = await authState.callAuthenticatedAction<ServerChat>(
+        const created =
+          await authState.callAuthenticatedAction<ServerChatWithAgents>(
           createRef,
           {
             title,
@@ -292,6 +323,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
               role: "user",
               content: trimmedMessage,
             },
+              agents: activeAgents,
           }
         );
 
@@ -309,6 +341,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
             role: "user",
             content: trimmedMessage,
           },
+          agents: activeAgents,
         });
 
         conversations = conversations.map((chat) =>
@@ -320,6 +353,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
                 time: formatTimestamp(now),
                 unread: 0,
                 updatedAt: now,
+                agentConfigs: mapToStoredAgents(activeAgents),
               }
             : chat
         );
@@ -399,6 +433,45 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
         description: "Please try again.",
       });
       set({ isStreaming: false });
+    }
+  },
+
+  saveAgentConfiguration: async (chatId, agents) => {
+    const auth = useAuthStore.getState();
+    const saveAgentsRef = getChatsRef(
+      "saveAgentConfigs",
+      "chats:saveAgentConfigs"
+    );
+
+    try {
+      const updated = await auth.callAuthenticatedAction<{ updatedAt: number }>(
+        saveAgentsRef,
+        {
+          chatId,
+          agents,
+        }
+      );
+
+      const updatedTimestamp = updated?.updatedAt ?? Date.now();
+
+      set((state) => ({
+        conversations: state.conversations.map((chat) =>
+          chat.id === chatId
+            ? {
+                ...chat,
+                agentConfigs: mapToStoredAgents(agents),
+                updatedAt: updatedTimestamp,
+                time: formatTimestamp(updatedTimestamp),
+              }
+            : chat
+        ),
+        activeAgents: agents,
+      }));
+    } catch (error) {
+      console.error("Failed to save agent configuration", error);
+      toast.error("Agent settings not saved", {
+        description: "Please try again.",
+      });
     }
   },
 

@@ -9,6 +9,26 @@ import { internal } from "./_generated/api";
 const truncate = (value: string, length = 120): string =>
   value.length <= length ? value : `${value.slice(0, length)}...`;
 
+const webSearchEnum = v.union(
+  v.literal("none"),
+  v.literal("native"),
+  v.literal("firecrawl")
+);
+
+const agentConfigValidator = v.object({
+  provider: v.string(),
+  modelId: v.optional(v.string()),
+  systemPrompt: v.string(),
+  webSearch: v.optional(webSearchEnum),
+});
+
+interface FormattedAgentConfig {
+  provider: string;
+  modelId?: string;
+  systemPrompt: string;
+  webSearch?: "none" | "native" | "firecrawl";
+}
+
 interface FormattedChat {
   id: Id<"chats">;
   title: string;
@@ -16,6 +36,7 @@ interface FormattedChat {
   createdAt: number;
   updatedAt: number;
   messages: FormattedMessage[];
+  agentConfigs: FormattedAgentConfig[];
 }
 
 interface FormattedMessage {
@@ -37,6 +58,14 @@ const formatChat = (
   createdAt: chat.createdAt,
   updatedAt: chat.updatedAt,
   messages: messages.map(formatMessage),
+  agentConfigs: Array.isArray(chat.agentConfigs)
+    ? chat.agentConfigs.map((config) => ({
+        provider: config.provider,
+        modelId: config.modelId ?? undefined,
+        systemPrompt: config.systemPrompt,
+        webSearch: config.webSearch ?? undefined,
+      }))
+    : [],
 });
 
 const formatMessage = (message: Doc<"messages">): FormattedMessage => ({
@@ -101,6 +130,7 @@ export const createChat = action({
       role: v.string(),
       content: v.string(),
     }),
+    agents: v.optional(v.array(agentConfigValidator)),
   },
   handler: async (ctx, args): Promise<FormattedChat> => {
     const payload = verifyAccessToken(args.accessToken);
@@ -115,6 +145,7 @@ export const createChat = action({
         title,
         preview: truncate(args.firstMessage.content),
         timestamp: now,
+        agentConfigs: args.agents ?? [],
       }
     );
 
@@ -152,6 +183,7 @@ export const appendMessage = action({
       role: v.string(),
       content: v.string(),
     }),
+    agents: v.optional(v.array(agentConfigValidator)),
   },
   handler: async (
     ctx,
@@ -159,7 +191,7 @@ export const appendMessage = action({
   ): Promise<{ chat: FormattedChat; message: FormattedMessage }> => {
     const payload = verifyAccessToken(args.accessToken);
     const userId = payload.userId as Id<"users">;
-    const chat = await ensureOwnership(ctx, userId, args.chatId);
+    const chatDoc = await ensureOwnership(ctx, userId, args.chatId);
     const now = Date.now();
 
     const messageDoc: Doc<"messages"> | null = await ctx.runMutation(
@@ -183,13 +215,27 @@ export const appendMessage = action({
       timestamp: now,
     });
 
+    if (Array.isArray(args.agents)) {
+      await ctx.runMutation(internal.chatsInternal.internalUpdateAgentConfigs, {
+        chatId: args.chatId,
+        agentConfigs: args.agents,
+        timestamp: now,
+      });
+    }
+    const updatedChat = await ctx.runQuery(
+      internal.chatsInternal.internalGetChatById,
+      { chatId: args.chatId }
+    );
+
     return {
-      chat: {
-        ...formatChat(
-          { ...chat, preview: truncate(args.message.content), updatedAt: now },
-          []
-        ),
-      },
+      chat: formatChat(
+        {
+          ...(updatedChat ?? chatDoc),
+          preview: truncate(args.message.content),
+          updatedAt: now,
+        },
+        []
+      ),
       message: formatMessage(messageDoc),
     };
   },
@@ -241,5 +287,38 @@ export const deleteChat = action({
     await ctx.runMutation(internal.chatsInternal.internalDeleteChat, {
       chatId: args.chatId,
     });
+  },
+});
+
+export const saveAgentConfigs = action({
+  args: {
+    accessToken: v.string(),
+    chatId: v.id("chats"),
+    agents: v.array(agentConfigValidator),
+  },
+  handler: async (ctx, args): Promise<FormattedChat> => {
+    const payload = verifyAccessToken(args.accessToken);
+    const userId = payload.userId as Id<"users">;
+    const chat = await ensureOwnership(ctx, userId, args.chatId);
+    const now = Date.now();
+
+    await ctx.runMutation(internal.chatsInternal.internalUpdateAgentConfigs, {
+      chatId: args.chatId,
+      agentConfigs: args.agents,
+      timestamp: now,
+    });
+
+    const refreshed = await ctx.runQuery(
+      internal.chatsInternal.internalGetChatById,
+      {
+        chatId: args.chatId,
+      }
+    );
+
+    if (!refreshed) {
+      throw new ConvexError("Chat not found");
+    }
+
+    return formatChat(refreshed, []);
   },
 });
