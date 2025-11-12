@@ -395,6 +395,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
         body: JSON.stringify({
           chatId,
           agents: activeAgents,
+          currentMessage: trimmedMessage, // Include the current message to ensure it's in context
         }),
       });
 
