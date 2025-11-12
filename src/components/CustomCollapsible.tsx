@@ -31,7 +31,7 @@ const STATUS_STYLES: Record<CollapsibleItemStatus, string> = {
   error: "bg-destructive/10 text-destructive",
 };
 
-export function CustomCollapsible({
+export default function CustomCollapsible({
   title,
   children,
   defaultOpen = false,
@@ -52,9 +52,8 @@ export function CustomCollapsible({
   return (
     <div className={cn("group", className)}>
       <Button
-        type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="w-full py-4 sm:py-5 md:py-6 lg:py-7 flex items-center gap-3 sm:gap-4 md:gap-6 lg:gap-8 group transition-all duration-500 ease-out hover:pl-1 sm:hover:pl-1.5 md:hover:pl-2"
+        className="w-full py-4 sm:py-5 md:py-6 lg:py-7 flex bg-transparent hover:bg-accent-foreground/10 items-center gap-3 sm:gap-4 md:gap-6 lg:gap-8 group transition-all duration-500 ease-out hover:pl-1 sm:hover:pl-1.5 md:hover:pl-2"
       >
         <span className="text-sm sm:text-base md:text-lg font-light tracking-wide sm:tracking-wider text-foreground whitespace-nowrap transition-all duration-500 group-hover:tracking-wider sm:group-hover:tracking-widest">
           {title}

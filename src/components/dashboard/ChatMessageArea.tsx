@@ -4,9 +4,10 @@ import type { Chat } from "@/lib/chat-storage";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
-import { CustomCollapsible } from "@/components/CustomCollapsible";
+import CustomCollapsible  from "@/components/CustomCollapsible";
 import { useAuthStore } from "@/zustand/AuthStore";
 import { useChatStore } from "@/zustand/ChatStore";
+import { Streamdown } from "streamdown";
 
 const getUserInitials = (
   fullName: string | undefined,
@@ -134,9 +135,12 @@ export default function ChatMessageArea({
                     : "bg-muted"
                 )}
               >
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                  {textContent}
-                </p>
+                <Streamdown
+                  className="prose prose-sm dark:prose-invert max-w-none"
+                  isAnimating={isStreaming && message.role === "assistant"}
+                >
+                  {textContent || ""}
+                </Streamdown>
               </div>
               {message.role === "user" && (
                 <Avatar className="size-8 shrink-0">
@@ -195,7 +199,7 @@ export default function ChatMessageArea({
                         <span className="text-[11px] font-semibold uppercase tracking-[0.35em]">
                           {agent.label}
                         </span>
-                        <span className="text-xs text-muted-foreground/80 truncate">
+                        <span className="text-xs truncate">
                           {agent.providerLabel} · {agent.modelName}
                         </span>
                         <span

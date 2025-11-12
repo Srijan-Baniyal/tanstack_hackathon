@@ -40,17 +40,6 @@ type ChatStoreState = {
   reset: () => void;
 };
 
-const AI_RESPONSES = [
-  "That's a great question! Let me help you with that. 🚀",
-  "I understand what you're asking. Here's my take on it...",
-  "Interesting! I'd be happy to assist you with that.",
-  "Sure thing! Let me explain that for you.",
-  "Absolutely! Here's what I think about that...",
-  "Great minds think alike! Let me share some insights.",
-  "Brilliant! That's exactly the right approach, innit!",
-  "Cheers! I've got just the solution for you, mate.",
-];
-
 type ServerChatWithAgents = ServerChat & {
   agentConfigs?: StoredAgentConfig[];
 };
@@ -105,6 +94,8 @@ const initialState: Pick<
   isStreaming: false,
   activeAgents: [],
 };
+
+const AI_RESPONSE_ENDPOINT = "/api/openrouter" as const;
 
 export const useChatStore = create<ChatStoreState>((set, get) => ({
   ...initialState,
@@ -307,6 +298,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
     let chatId = state.selectedChatId;
     let conversations = state.conversations;
     let previousMessages = state.messages;
+    let assistantMessageId: string | null = null;
 
     try {
       if (state.isNewChatMode || !chatId) {
@@ -362,81 +354,213 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
         );
       }
 
+      const assistantUIMessage: UIMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        parts: [{ type: "text" as const, text: "" }],
+      };
+      assistantMessageId = assistantUIMessage.id;
+
+      const assistantStoredMessage: Message = {
+        id: assistantUIMessage.id,
+        role: "assistant",
+        content: "",
+        createdAt: now,
+      };
+
+      conversations = conversations.map((chat) =>
+        chat.id === chatId
+          ? {
+              ...chat,
+              messages: [...chat.messages, assistantStoredMessage],
+            }
+          : chat
+      );
+
       set({
         conversations,
         selectedChatId: chatId,
         isNewChatMode: false,
-        messages: [...previousMessages, userUIMessage],
+        messages: [...previousMessages, userUIMessage, assistantUIMessage],
         isStreaming: true,
         activeAgents,
       });
 
-      const responseDelay = 1500;
+      const response = await fetch(AI_RESPONSE_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          chatId,
+          agents: activeAgents,
+        }),
+      });
 
-      setTimeout(async () => {
-        const baseResponse =
-          AI_RESPONSES[Math.floor(Math.random() * AI_RESPONSES.length)];
-        const webEnabledAgent = activeAgents.find(
-          (agentConfig) =>
-            agentConfig.webSearch && agentConfig.webSearch !== "none"
-        );
-        const aiResponse = webEnabledAgent
-          ? `${baseResponse}\n\n(Web search via ${webEnabledAgent.provider}: ${webEnabledAgent.webSearch})`
-          : baseResponse;
-        const aiUIMessage: UIMessage = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          parts: [{ type: "text" as const, text: aiResponse }],
-        };
+      if (!response.ok || !response.body) {
+        const contentType = response.headers.get("content-type") ?? "";
+        let errorMessage: string | null = null;
 
-        const aiStoredMessage: Message = {
-          id: aiUIMessage.id,
-          role: "assistant",
-          content: aiResponse,
-          createdAt: Date.now(),
-        };
-
-        try {
-          if (chatId) {
-            await authState.callAuthenticatedAction(appendRef, {
-              chatId,
-              message: {
-                role: "assistant",
-                content: aiResponse,
-              },
-            });
+        if (contentType.includes("application/json")) {
+          try {
+            const payload = await response.json();
+            if (payload && typeof payload.error === "string") {
+              errorMessage = payload.error.trim();
+            }
+          } catch (error) {
+            console.warn("Failed to parse JSON error payload", error);
           }
-        } catch (error) {
-          console.error("Failed to store assistant response", error);
         }
 
-        set((current) => {
-          const updatedChats = current.conversations.map((chat) =>
-            chat.id === chatId
-              ? {
-                  ...chat,
-                  messages: [...chat.messages, aiStoredMessage],
-                  preview: truncatePreview(aiResponse),
-                  time: formatTimestamp(Date.now()),
-                  updatedAt: Date.now(),
-                }
-              : chat
-          );
+        if (!errorMessage) {
+          const errorText = await response.text().catch(() => null);
+          if (errorText && errorText.trim().length > 0) {
+            errorMessage = errorText.trim();
+          }
+        }
 
-          return {
-            conversations: updatedChats,
-            messages: [...current.messages, aiUIMessage],
-            isStreaming: false,
-            activeAgents: current.activeAgents,
-          };
-        });
-      }, responseDelay);
+        throw new Error(
+          errorMessage && errorMessage.length > 0
+            ? errorMessage
+            : `Model request failed (${response.status})`
+        );
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantText = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) {
+          const remaining = decoder.decode();
+          if (remaining) {
+            assistantText += remaining;
+          }
+          break;
+        }
+
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          if (chunk) {
+            assistantText += chunk;
+            const latestText = assistantText;
+            set((current) => ({
+              messages: current.messages.map((message) =>
+                message.id === assistantMessageId
+                  ? {
+                      ...message,
+                      parts: [{ type: "text" as const, text: latestText }],
+                    }
+                  : message
+              ),
+            }));
+          }
+        }
+      }
+
+      if (!assistantText.trim()) {
+        throw new Error("Assistant returned an empty response.");
+      }
+
+      const finalAssistantText = assistantText;
+
+      await authState.callAuthenticatedAction(appendRef, {
+        chatId,
+        message: {
+          role: "assistant",
+          content: finalAssistantText,
+        },
+      });
+
+      const completedAt = Date.now();
+
+      set((current) => {
+        const updatedChats = current.conversations.map((chat) =>
+          chat.id === chatId
+            ? {
+                ...chat,
+                messages: chat.messages.map((message) =>
+                  message.id === assistantMessageId
+                    ? {
+                        ...message,
+                        content: finalAssistantText,
+                        createdAt: completedAt,
+                      }
+                    : message
+                ),
+                preview: truncatePreview(finalAssistantText),
+                time: formatTimestamp(completedAt),
+                updatedAt: completedAt,
+              }
+            : chat
+        );
+
+        const updatedMessages = current.messages.map((message) =>
+          message.id === assistantMessageId
+            ? {
+                ...message,
+                parts: [{ type: "text" as const, text: finalAssistantText }],
+              }
+            : message
+        );
+
+        return {
+          conversations: updatedChats,
+          messages: updatedMessages,
+          isStreaming: false,
+          activeAgents: current.activeAgents,
+        };
+      });
     } catch (error) {
       console.error("Failed to send message", error);
-      toast.error("Message failed", {
-        description: "Please try again.",
+      const fallbackText =
+        error instanceof Error && error.message
+          ? `Error: ${error.message}`
+          : "An unexpected error occurred while generating the reply.";
+
+      set((current) => {
+        if (!assistantMessageId) {
+          return {
+            ...current,
+            isStreaming: false,
+          };
+        }
+
+        const updatedConversations = current.conversations.map((chat) =>
+          chat.id === chatId
+            ? {
+                ...chat,
+                messages: chat.messages.map((message) =>
+                  message.id === assistantMessageId
+                    ? { ...message, content: fallbackText }
+                    : message
+                ),
+              }
+            : chat
+        );
+
+        const updatedMessages = current.messages.map((message) =>
+          message.id === assistantMessageId
+            ? {
+                ...message,
+                parts: [{ type: "text" as const, text: fallbackText }],
+              }
+            : message
+        );
+
+        return {
+          conversations: updatedConversations,
+          messages: updatedMessages,
+          isStreaming: false,
+          activeAgents: current.activeAgents,
+        };
       });
-      set({ isStreaming: false });
+
+      toast.error("Message failed", {
+        description: fallbackText,
+      });
     }
   },
 

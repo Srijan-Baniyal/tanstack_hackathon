@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getSettings } from "@/lib/settings";
+import { getSettings, saveSettings } from "@/lib/settings";
 import {
   useOpenRouterModels,
   useVercelModels,
@@ -35,6 +35,8 @@ import {
   type SystemPromptKey,
 } from "@/zustand/AgentStore";
 import { useChatStore } from "@/zustand/ChatStore";
+import { useAuthStore } from "@/zustand/AuthStore";
+import { api } from "../../../convex/_generated/api";
 
 const PANEL_LABEL_CLASS =
   "text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground";
@@ -61,6 +63,9 @@ export default function ChatInput({
   const [settings, setSettings] = useState(() => getSettings());
   const [systemPrompts, setSystemPrompts] = useState<string[]>(
     settings.systemPrompts
+  );
+  const callAuthenticatedAction = useAuthStore(
+    (state) => state.callAuthenticatedAction
   );
   const {
     agentCount,
@@ -138,6 +143,48 @@ export default function ChatInput({
   useEffect(() => {
     validateSystemPromptKeys(systemPrompts.length);
   }, [systemPrompts.length, validateSystemPromptKeys]);
+
+  useEffect(() => {
+    if (settings.openRouterKey || settings.vercelAiGateway) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const hydrateRemoteKeys = async () => {
+      try {
+        const keys = await callAuthenticatedAction<
+          { openrouterKey: string | null; vercelKey: string | null } | null
+        >(api.authActions.getUserKeys);
+
+        if (cancelled || !keys) {
+          return;
+        }
+
+        setSettings((prev) => {
+          const nextSettings = {
+            ...prev,
+            openRouterKey: keys.openrouterKey ?? "",
+            vercelAiGateway: keys.vercelKey ?? "",
+          };
+          saveSettings(nextSettings);
+          return nextSettings;
+        });
+      } catch (error) {
+        console.error("Unable to load stored API keys", error);
+      }
+    };
+
+    void hydrateRemoteKeys();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    callAuthenticatedAction,
+    settings.openRouterKey,
+    settings.vercelAiGateway,
+  ]);
 
   useEffect(() => {
     if (!selectedChatId || isNewChatMode) {

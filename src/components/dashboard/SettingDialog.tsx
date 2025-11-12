@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import {
   Dialog,
@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SettingsIcon, Plus, Trash2 } from "lucide-react";
 import { getSettings, saveSettings, type Settings } from "@/lib/settings";
+import { useAuthStore } from "@/zustand/AuthStore";
+import { api } from "../../../convex/_generated/api";
+import { toast } from "sonner";
 
 type SettingsFormValues = {
   openRouterKey: string;
@@ -20,11 +23,20 @@ type SettingsFormValues = {
   systemPrompts: string[];
 };
 
+type UserKeysResponse = {
+  openrouterKey: string | null;
+  vercelKey: string | null;
+};
+
 export default function SettingsDialog() {
   const [open, setOpen] = useState(false);
   const [newPrompt, setNewPrompt] = useState("");
+  const [isLoadingKeys, setIsLoadingKeys] = useState(false);
 
   const initialSettings = getSettings();
+  const callAuthenticatedAction = useAuthStore(
+    (state) => state.callAuthenticatedAction
+  );
 
   const form = useForm({
     defaultValues: {
@@ -33,11 +45,87 @@ export default function SettingsDialog() {
       systemPrompts: initialSettings.systemPrompts || [],
     } as SettingsFormValues,
     onSubmit: async ({ value }) => {
-      console.log("Form submitted with values:", value);
-      saveSettings(value as Settings);
-      setOpen(false);
+      const trimmedOpenRouterKey = value.openRouterKey.trim();
+      const trimmedVercelGateway = value.vercelAiGateway.trim();
+
+      try {
+        await callAuthenticatedAction(api.authActions.upsertUserKeys, {
+          keys: {
+            openrouterKey:
+              trimmedOpenRouterKey.length > 0
+                ? trimmedOpenRouterKey
+                : undefined,
+            vercelKey:
+              trimmedVercelGateway.length > 0
+                ? trimmedVercelGateway
+                : undefined,
+          },
+        });
+
+        const sanitized = saveSettings({
+          openRouterKey: trimmedOpenRouterKey,
+          vercelAiGateway: trimmedVercelGateway,
+          systemPrompts: value.systemPrompts,
+        } as Settings);
+
+        if (sanitized) {
+          form.setFieldValue("openRouterKey", sanitized.openRouterKey);
+          form.setFieldValue("vercelAiGateway", sanitized.vercelAiGateway);
+          form.setFieldValue("systemPrompts", sanitized.systemPrompts);
+        }
+
+        toast.success("Settings saved", {
+          description: "Your API keys are stored securely.",
+        });
+        setOpen(false);
+      } catch (error) {
+        console.error("Failed to save settings", error);
+        const description =
+          error instanceof Error ? error.message : "Please try again.";
+        toast.error("Failed to save settings", { description });
+      }
     },
   });
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadKeys = async () => {
+      setIsLoadingKeys(true);
+      try {
+        const keys = await callAuthenticatedAction<UserKeysResponse | null>(
+          api.authActions.getUserKeys
+        );
+        if (cancelled) {
+          return;
+        }
+
+        form.setFieldValue("openRouterKey", keys?.openrouterKey ?? "");
+        form.setFieldValue("vercelAiGateway", keys?.vercelKey ?? "");
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Failed to load stored keys", error);
+          toast.error("Could not load saved keys", {
+            description: "Please try again.",
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingKeys(false);
+        }
+      }
+    };
+
+    void loadKeys();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, callAuthenticatedAction, form]);
 
   const addPrompt = () => {
     if (newPrompt.trim()) {
@@ -110,6 +198,7 @@ export default function SettingsDialog() {
                       onChange={(e) => field.handleChange(e.target.value)}
                       placeholder="sk-or-v1-..."
                       type="password"
+                      disabled={isLoadingKeys}
                     />
                     <p className="text-sm text-muted-foreground">
                       Optional. Your OpenRouter API key for AI models.
@@ -134,6 +223,7 @@ export default function SettingsDialog() {
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
                       placeholder="https://gateway.vercel.ai/..."
+                      disabled={isLoadingKeys}
                     />
                     <p className="text-sm text-muted-foreground">
                       Optional. Your Vercel AI Gateway endpoint.
@@ -228,8 +318,13 @@ export default function SettingsDialog() {
               selector={(state) => [state.canSubmit, state.isSubmitting]}
             >
               {([canSubmit, isSubmitting]) => (
-                <Button type="submit" disabled={!canSubmit}>
-                  {isSubmitting ? "Saving..." : "Save Settings"}
+                <Button
+                  type="submit"
+                  disabled={!canSubmit || isLoadingKeys}
+                >
+                  {isSubmitting || isLoadingKeys
+                    ? "Saving..."
+                    : "Save Settings"}
                 </Button>
               )}
             </form.Subscribe>
