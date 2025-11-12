@@ -415,16 +415,16 @@ export default function ChatSidebar({
               <SidebarMenuItem>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <SidebarMenuButton className="h-auto py-3 px-3 rounded-xl hover:bg-sidebar-accent transition-colors w-full group/footer">
+                    <SidebarMenuButton className="h-auto py-3 px-3 rounded-xl transition-colors w-full group/footer hover:bg-sidebar-border/60 hover:text-sidebar-foreground data-[state=open]:hover:bg-sidebar-border/60 data-[state=open]:hover:text-sidebar-foreground">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <Avatar className="size-9 shrink-0">
+                        <Avatar className="size-9 shrink-0 text-primary">
                           {user.avatarUrl && (
                             <AvatarImage
                               src={user.avatarUrl}
                               alt={user.fullName}
                             />
                           )}
-                          <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+                          <AvatarFallback className="bg-primary/10 font-semibold text-xs">
                             {getInitials(user.fullName, user.email)}
                           </AvatarFallback>
                         </Avatar>

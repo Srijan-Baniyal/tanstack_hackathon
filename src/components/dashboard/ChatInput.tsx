@@ -36,6 +36,15 @@ import {
 } from "@/zustand/AgentStore";
 import { useChatStore } from "@/zustand/ChatStore";
 
+const PANEL_LABEL_CLASS =
+  "text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground";
+const PANEL_SELECT_TRIGGER_CLASS =
+  "h-10 w-full rounded-lg border border-border/60 bg-card/70 pl-3 pr-9 text-sm font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
+const PANEL_SELECT_CONTENT_CLASS =
+  "max-h-64 rounded-xl border border-border/60 bg-popover/95 p-1 shadow-lg backdrop-blur";
+const PANEL_CARD_CLASS =
+  "rounded-2xl border border-border/60 bg-muted/35 p-5 shadow-sm shadow-primary/5";
+
 interface ChatInputProps {
   onSendMessage?: (
     message: string,
@@ -456,7 +465,10 @@ export default function ChatInput({
           </div>
         </div>
 
-        <SheetContent side="right" className="w-full sm:max-w-lg">
+        <SheetContent
+          side="right"
+          className="w-full border-l border-border/40 bg-background/85 px-6 py-8 backdrop-blur sm:max-w-xl"
+        >
           <SheetHeader>
             <SheetTitle>Configure agents</SheetTitle>
             <SheetDescription>
@@ -466,19 +478,19 @@ export default function ChatInput({
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-1 pb-8">
             <div className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                  <label className={PANEL_LABEL_CLASS}>
                     No. of agents
                   </label>
                   <Select
                     value={String(agentCount)}
                     onValueChange={handleAgentCountChange}
                   >
-                    <SelectTrigger className="h-9 text-sm">
+                    <SelectTrigger className={PANEL_SELECT_TRIGGER_CLASS}>
                       <SelectValue placeholder="Choose" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className={PANEL_SELECT_CONTENT_CLASS}>
                       {agentCountOptions.map((option) => (
                         <SelectItem key={option} value={String(option)}>
                           {option}
@@ -489,7 +501,7 @@ export default function ChatInput({
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                  <label className={PANEL_LABEL_CLASS}>
                     Web search
                   </label>
                   <Select
@@ -500,10 +512,10 @@ export default function ChatInput({
                       )
                     }
                   >
-                    <SelectTrigger className="h-9 text-sm">
+                    <SelectTrigger className={PANEL_SELECT_TRIGGER_CLASS}>
                       <SelectValue placeholder="Choose" className="truncate" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className={PANEL_SELECT_CONTENT_CLASS}>
                       <SelectItem value="none">None</SelectItem>
                       <SelectItem value="native">Native</SelectItem>
                       <SelectItem value="firecrawl">Firecrawl</SelectItem>
@@ -513,7 +525,7 @@ export default function ChatInput({
               </div>
 
               <div className="space-y-2">
-                <label className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                <label className={PANEL_LABEL_CLASS}>
                   System prompt
                 </label>
                 <Select
@@ -522,10 +534,10 @@ export default function ChatInput({
                     handleSystemPromptChangeAll(value as SystemPromptKey)
                   }
                 >
-                  <SelectTrigger className="h-9 text-sm">
+                  <SelectTrigger className={PANEL_SELECT_TRIGGER_CLASS}>
                     <SelectValue placeholder="Choose" className="truncate" />
                   </SelectTrigger>
-                  <SelectContent className="max-h-64">
+                  <SelectContent className={PANEL_SELECT_CONTENT_CLASS}>
                     {systemPromptOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         <span className="block truncate text-sm">
@@ -572,10 +584,7 @@ export default function ChatInput({
                   })();
 
                   return (
-                    <div
-                      key={`agent-${index}`}
-                      className="rounded-xl border border-border/60 bg-muted/40 p-4 shadow-sm"
-                    >
+                    <div key={`agent-${index}`} className={PANEL_CARD_CLASS}>
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
@@ -600,7 +609,7 @@ export default function ChatInput({
 
                       <div className="mt-4 grid gap-3 sm:grid-cols-2">
                         <div className="space-y-1.5">
-                          <label className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                          <label className={PANEL_LABEL_CLASS}>
                             Provider
                           </label>
                           <Select
@@ -609,10 +618,10 @@ export default function ChatInput({
                               handleProviderChange(index, value as ProviderType)
                             }
                           >
-                            <SelectTrigger className="h-9 text-sm">
+                            <SelectTrigger className={PANEL_SELECT_TRIGGER_CLASS}>
                               <SelectValue placeholder="Choose provider" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className={PANEL_SELECT_CONTENT_CLASS}>
                               <SelectItem value="vercel">Vercel</SelectItem>
                               <SelectItem value="openrouter">
                                 OpenRouter
@@ -622,7 +631,9 @@ export default function ChatInput({
                         </div>
 
                         <div className="space-y-1.5">
-                          <label className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1">
+                          <label
+                            className={`${PANEL_LABEL_CLASS} flex items-center gap-1`}
+                          >
                             Model
                             {(isOpenRouter && isRefetchingOpenRouter) ||
                             (isVercel && isRefetchingVercel) ? (
@@ -636,10 +647,12 @@ export default function ChatInput({
                               handleModelChange(index, value)
                             }
                           >
-                            <SelectTrigger className="h-9 text-sm">
+                            <SelectTrigger
+                              className={PANEL_SELECT_TRIGGER_CLASS}
+                            >
                               <SelectValue placeholder={modelPlaceholder} />
                             </SelectTrigger>
-                            <SelectContent className="max-h-64">
+                            <SelectContent className={PANEL_SELECT_CONTENT_CLASS}>
                               {models.map((model: Model) => (
                                 <SelectItem key={model.id} value={model.id}>
                                   <span className="block truncate text-sm">

@@ -1,5 +1,9 @@
 {
   "node": {
-    "externalPackages": ["argon2", "jsonwebtoken", "nodemailer"]
+    "externalPackages": [
+      "argon2",
+      "jsonwebtoken",
+      "nodemailer"
+    ]
   }
 }

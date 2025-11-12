@@ -39,6 +39,36 @@ type VercelApiResponse = {
   data?: VercelApiModel[];
 };
 
+const formatVercelOwner = (owner: string): string => {
+  if (!owner) {
+    return "Vercel";
+  }
+
+  const normalized = owner.replace(/[-_.]+/g, " ").trim();
+  if (!normalized) {
+    return "Vercel";
+  }
+
+  if (/[A-Z]/.test(normalized)) {
+    return normalized;
+  }
+
+  return normalized
+    .split(/\s+/)
+    .map((segment) => {
+      if (!segment) {
+        return segment;
+      }
+
+      if (segment.length <= 3 || /\d/.test(segment)) {
+        return segment.toUpperCase();
+      }
+
+      return segment.charAt(0).toUpperCase() + segment.slice(1);
+    })
+    .join(" ");
+};
+
 const normalizeVercelModelsUrl = (gatewayUrl?: string): string => {
   const trimmed = (gatewayUrl ?? "").trim();
   if (!trimmed) {
@@ -77,10 +107,20 @@ const mapVercelModels = (response: VercelApiResponse): Model[] => {
       continue;
     }
 
-    const name =
+    const baseName =
       typeof candidate.name === "string" && candidate.name.trim().length > 0
-        ? candidate.name
+        ? candidate.name.trim()
         : candidate.id;
+
+    const owner =
+      typeof candidate.owned_by === "string" &&
+      candidate.owned_by.trim().length > 0
+        ? candidate.owned_by.trim()
+        : null;
+
+    const ownerLabel = owner ? formatVercelOwner(owner) : null;
+
+    const name = ownerLabel ? `${ownerLabel}: ${baseName}` : baseName;
 
     models.push({
       id: candidate.id,
