@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SettingsIcon, Plus, Trash2 } from "lucide-react";
+import { SettingsIcon, Plus, Trash2, Eye, EyeOff } from "lucide-react";
 import { getSettings, saveSettings, type Settings } from "@/lib/settings";
 import { useAuthStore } from "@/zustand/AuthStore";
 import { api } from "../../../convex/_generated/api";
@@ -32,6 +32,8 @@ export default function SettingsDialog() {
   const [open, setOpen] = useState(false);
   const [newPrompt, setNewPrompt] = useState("");
   const [isLoadingKeys, setIsLoadingKeys] = useState(false);
+  const [showOpenRouterKey, setShowOpenRouterKey] = useState(false);
+  const [showVercelKey, setShowVercelKey] = useState(false);
 
   const initialSettings = getSettings();
   const callAuthenticatedAction = useAuthStore(
@@ -190,16 +192,36 @@ export default function SettingsDialog() {
                     >
                       OpenRouter API Key
                     </label>
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="sk-or-v1-..."
-                      type="password"
-                      disabled={isLoadingKeys}
-                    />
+                    <div className="relative">
+                      <Input
+                        id={field.name}
+                        name={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        placeholder="Openrouter keys goes here"
+                        type={showOpenRouterKey ? "text" : "password"}
+                        disabled={isLoadingKeys}
+                        className="pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                        onClick={() => setShowOpenRouterKey(!showOpenRouterKey)}
+                        disabled={isLoadingKeys}
+                      >
+                        {showOpenRouterKey ? (
+                          <EyeOff className="size-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="size-4 text-muted-foreground" />
+                        )}
+                        <span className="sr-only">
+                          {showOpenRouterKey ? "Hide" : "Show"} API key
+                        </span>
+                      </Button>
+                    </div>
                     <p className="text-sm text-muted-foreground">
                       Optional. Your OpenRouter API key for AI models.
                     </p>
@@ -216,15 +238,36 @@ export default function SettingsDialog() {
                     >
                       Vercel AI Gateway
                     </label>
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="https://gateway.vercel.ai/..."
-                      disabled={isLoadingKeys}
-                    />
+                    <div className="relative">
+                      <Input
+                        id={field.name}
+                        name={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        type={showVercelKey ? "text" : "password"}
+                        placeholder="Vercel AI Gateway key goes here"
+                        disabled={isLoadingKeys}
+                        className="pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                        onClick={() => setShowVercelKey(!showVercelKey)}
+                        disabled={isLoadingKeys}
+                      >
+                        {showVercelKey ? (
+                          <EyeOff className="size-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="size-4 text-muted-foreground" />
+                        )}
+                        <span className="sr-only">
+                          {showVercelKey ? "Hide" : "Show"} API key
+                        </span>
+                      </Button>
+                    </div>
                     <p className="text-sm text-muted-foreground">
                       Optional. Your Vercel AI Gateway endpoint.
                     </p>

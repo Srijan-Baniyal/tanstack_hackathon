@@ -144,37 +144,48 @@ const getVercelCacheKey = (gatewayUrl?: string) =>
 export async function fetchVercelModels(gatewayUrl?: string): Promise<Model[]> {
   const cacheKey = getVercelCacheKey(gatewayUrl);
 
-  const cached = vercelModelsCache.get(cacheKey);
+  let effectiveCacheKey = cacheKey;
+  if (!cacheKey.includes("vercel.sh")) {
+    effectiveCacheKey = DEFAULT_VERCEL_MODELS_URL;
+  }
+
+  const cached = vercelModelsCache.get(effectiveCacheKey);
   if (cached && cached.length > 0) {
     return cached;
   }
 
-  const inFlight = vercelFetchPromises.get(cacheKey);
+  const inFlight = vercelFetchPromises.get(effectiveCacheKey);
   if (inFlight) {
     return inFlight;
   }
 
   const fetchPromise = (async () => {
     try {
-      const { data } = await axios.get<VercelApiResponse>(cacheKey, {
+      const { data } = await axios.get<VercelApiResponse>(effectiveCacheKey, {
         headers: { Accept: "application/json" },
       });
 
       const mapped = mapVercelModels(data);
-      vercelModelsCache.set(cacheKey, mapped);
+      vercelModelsCache.set(effectiveCacheKey, mapped);
       return mapped;
     } catch (error) {
-      const detail = axios.isAxiosError(error)
-        ? `${error.response?.status ?? ""} ${error.response?.statusText ?? ""}`.trim()
-        : "";
-      console.error(
-        `Failed to fetch Vercel models${detail ? `: ${detail}` : ""}`,
-        error
-      );
-      vercelModelsCache.set(cacheKey, []);
+      // If custom URL failed and it's not the default, try the default
+      if (effectiveCacheKey !== DEFAULT_VERCEL_MODELS_URL) {
+        try {
+          const { data } = await axios.get<VercelApiResponse>(DEFAULT_VERCEL_MODELS_URL, {
+            headers: { Accept: "application/json" },
+          });
+          const mapped = mapVercelModels(data);
+          vercelModelsCache.set(DEFAULT_VERCEL_MODELS_URL, mapped);
+          return mapped;
+        } catch (fallbackError) {
+          // ignore
+        }
+      }
+      vercelModelsCache.set(effectiveCacheKey, []);
       return [];
     } finally {
-      vercelFetchPromises.delete(cacheKey);
+      vercelFetchPromises.delete(effectiveCacheKey);
     }
   })();
 
@@ -239,13 +250,6 @@ export async function fetchOpenRouterModels(apiKey?: string): Promise<Model[]> {
       openRouterModelsCache = sorted;
       return sorted;
     } catch (error) {
-      const detail = axios.isAxiosError(error)
-        ? `${error.response?.status ?? ""} ${error.response?.statusText ?? ""}`.trim()
-        : "";
-      console.error(
-        `Failed to fetch OpenRouter models${detail ? `: ${detail}` : ""}`,
-        error
-      );
       openRouterModelsCache = [];
       return [];
     } finally {

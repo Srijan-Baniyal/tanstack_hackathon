@@ -95,7 +95,34 @@ const initialState: Pick<
   activeAgents: [],
 };
 
-const AI_RESPONSE_ENDPOINT = "/api/openrouter" as const;
+const PROVIDER_ENDPOINTS: Record<PreparedAgentConfig["provider"], string> = {
+  openrouter: "/api/openrouter",
+  vercel: "/api/vercel",
+} as const;
+
+const resolveAiEndpoint = (agents: PreparedAgentConfig[]): string => {
+  if (!Array.isArray(agents) || agents.length === 0) {
+    return PROVIDER_ENDPOINTS.openrouter;
+  }
+
+  const primary = agents[0]?.provider ?? "openrouter";
+  const normalized = primary === "vercel" ? "vercel" : "openrouter";
+
+  if (
+    agents.some(
+      (agent) =>
+        agent.provider !== normalized &&
+        (agent.provider === "openrouter" || agent.provider === "vercel")
+    )
+  ) {
+    console.warn(
+      "Mixed AI providers detected in agent configuration. Using the first provider for message dispatch.",
+      { primaryProvider: normalized }
+    );
+  }
+
+  return PROVIDER_ENDPOINTS[normalized];
+};
 
 export const useChatStore = create<ChatStoreState>((set, get) => ({
   ...initialState,
@@ -386,7 +413,9 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
         activeAgents,
       });
 
-      const response = await fetch(AI_RESPONSE_ENDPOINT, {
+      const endpoint = resolveAiEndpoint(activeAgents);
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

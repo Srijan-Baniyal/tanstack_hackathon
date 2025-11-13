@@ -13,6 +13,8 @@ import { Route as SigninandsignupRouteImport } from './routes/signinandsignup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiVercelRouteImport } from './routes/api/vercel'
+import { Route as ApiOpenrouterRouteImport } from './routes/api/openrouter'
 import { Route as OauthCallbackProviderRouteImport } from './routes/oauth/callback.$provider'
 
 const SigninandsignupRoute = SigninandsignupRouteImport.update({
@@ -35,6 +37,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVercelRoute = ApiVercelRouteImport.update({
+  id: '/api/vercel',
+  path: '/api/vercel',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOpenrouterRoute = ApiOpenrouterRouteImport.update({
+  id: '/api/openrouter',
+  path: '/api/openrouter',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OauthCallbackProviderRoute = OauthCallbackProviderRouteImport.update({
   id: '/oauth/callback/$provider',
   path: '/oauth/callback/$provider',
@@ -46,6 +58,8 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signinandsignup': typeof SigninandsignupRoute
+  '/api/openrouter': typeof ApiOpenrouterRoute
+  '/api/vercel': typeof ApiVercelRoute
   '/oauth/callback/$provider': typeof OauthCallbackProviderRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +67,8 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signinandsignup': typeof SigninandsignupRoute
+  '/api/openrouter': typeof ApiOpenrouterRoute
+  '/api/vercel': typeof ApiVercelRoute
   '/oauth/callback/$provider': typeof OauthCallbackProviderRoute
 }
 export interface FileRoutesById {
@@ -61,6 +77,8 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signinandsignup': typeof SigninandsignupRoute
+  '/api/openrouter': typeof ApiOpenrouterRoute
+  '/api/vercel': typeof ApiVercelRoute
   '/oauth/callback/$provider': typeof OauthCallbackProviderRoute
 }
 export interface FileRouteTypes {
@@ -70,6 +88,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/reset-password'
     | '/signinandsignup'
+    | '/api/openrouter'
+    | '/api/vercel'
     | '/oauth/callback/$provider'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -77,6 +97,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/reset-password'
     | '/signinandsignup'
+    | '/api/openrouter'
+    | '/api/vercel'
     | '/oauth/callback/$provider'
   id:
     | '__root__'
@@ -84,6 +106,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/reset-password'
     | '/signinandsignup'
+    | '/api/openrouter'
+    | '/api/vercel'
     | '/oauth/callback/$provider'
   fileRoutesById: FileRoutesById
 }
@@ -92,6 +116,8 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SigninandsignupRoute: typeof SigninandsignupRoute
+  ApiOpenrouterRoute: typeof ApiOpenrouterRoute
+  ApiVercelRoute: typeof ApiVercelRoute
   OauthCallbackProviderRoute: typeof OauthCallbackProviderRoute
 }
 
@@ -125,6 +151,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/vercel': {
+      id: '/api/vercel'
+      path: '/api/vercel'
+      fullPath: '/api/vercel'
+      preLoaderRoute: typeof ApiVercelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/openrouter': {
+      id: '/api/openrouter'
+      path: '/api/openrouter'
+      fullPath: '/api/openrouter'
+      preLoaderRoute: typeof ApiOpenrouterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/oauth/callback/$provider': {
       id: '/oauth/callback/$provider'
       path: '/oauth/callback/$provider'
@@ -140,6 +180,8 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SigninandsignupRoute: SigninandsignupRoute,
+  ApiOpenrouterRoute: ApiOpenrouterRoute,
+  ApiVercelRoute: ApiVercelRoute,
   OauthCallbackProviderRoute: OauthCallbackProviderRoute,
 }
 export const routeTree = rootRouteImport
