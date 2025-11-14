@@ -14,7 +14,7 @@ export interface AgentConfig {
   provider: ProviderType;
   modelId?: string;
   systemPromptKey: SystemPromptKey;
-  webSearch?: "none" | "native" | "firecrawl";
+  webSearch?: "none" | "firecrawl";
   systemPromptOverride?: string;
 }
 
@@ -22,7 +22,7 @@ export interface PreparedAgentConfig {
   provider: ProviderType;
   modelId?: string;
   systemPrompt: string;
-  webSearch?: "none" | "native" | "firecrawl";
+  webSearch?: "none" | "firecrawl";
 }
 
 type AgentStoreState = {
@@ -35,7 +35,7 @@ type AgentStoreState = {
   setProvider: (index: number, provider: ProviderType) => void;
   setModelId: (index: number, modelId: string) => void;
   setSystemPromptKey: (index: number, key: SystemPromptKey) => void;
-  setWebSearch: (index: number, value: "none" | "native" | "firecrawl") => void;
+  setWebSearch: (index: number, value: "none" | "firecrawl") => void;
   ensureOpenRouterModels: (openRouterKey: string) => Promise<void>;
   validateSystemPromptKeys: (customPromptCount: number) => void;
   hydrateFromPreparedAgents: (
@@ -240,7 +240,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         const provider: ProviderType =
           agent.provider === "openrouter" ? "openrouter" : "vercel";
         const webSearch =
-          agent.webSearch === "native" || agent.webSearch === "firecrawl"
+          agent.webSearch === "firecrawl"
             ? agent.webSearch
             : "none";
 

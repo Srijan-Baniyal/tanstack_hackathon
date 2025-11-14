@@ -11,7 +11,6 @@ const truncate = (value: string, length = 120): string =>
 
 const webSearchEnum = v.union(
   v.literal("none"),
-  v.literal("native"),
   v.literal("firecrawl")
 );
 
@@ -26,7 +25,7 @@ interface FormattedAgentConfig {
   provider: string;
   modelId?: string;
   systemPrompt: string;
-  webSearch?: "none" | "native" | "firecrawl";
+  webSearch?: "none" | "firecrawl";
 }
 
 interface FormattedChat {

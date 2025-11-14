@@ -7,7 +7,7 @@ export type PreparedAgentConfig = {
   provider: SupportedProvider;
   modelId?: string;
   systemPrompt?: string;
-  webSearch?: "none" | "native" | "firecrawl";
+  webSearch?: "none" | "firecrawl";
 };
 
 export type ChatMessage = {

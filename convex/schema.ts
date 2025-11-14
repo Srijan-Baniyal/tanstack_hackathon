@@ -3,7 +3,6 @@ import { v } from "convex/values";
 
 const webSearchEnum = v.union(
   v.literal("none"),
-  v.literal("native"),
   v.literal("firecrawl")
 );
 

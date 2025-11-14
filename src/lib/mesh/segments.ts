@@ -41,63 +41,46 @@ const extractNewFormatSegments = (text: string): MeshAgentSegment[] => {
   const segments: MeshAgentSegment[] = [];
   let cursor = 0;
 
-  console.log("=== Starting segment extraction ===");
-  console.log("Full text length:", text.length);
-
   while (cursor < text.length) {
     const startIndex = text.indexOf(NEW_AGENT_PREFIX, cursor);
     if (startIndex === -1) {
-      console.log("No more agent prefixes found at cursor:", cursor);
       break;
     }
 
     const metaStart = startIndex + NEW_AGENT_PREFIX.length;
     const metaEnd = text.indexOf(NEW_AGENT_SUFFIX, metaStart);
     if (metaEnd === -1) {
-      console.log("No closing bracket found for metadata");
       break;
     }
 
     const metaRaw = text.slice(metaStart, metaEnd);
-    console.log("Metadata raw:", metaRaw);
     
     let metadata: { index?: number; agentIndex?: number; provider?: string; modelId?: string | null } | null = null;
     try {
       metadata = JSON.parse(metaRaw);
-      console.log("Parsed metadata:", metadata);
     } catch (e) {
-      console.log("Failed to parse metadata:", e);
       cursor = metaEnd + NEW_AGENT_SUFFIX.length;
       continue;
     }
 
     const agentIndex = Number(metadata?.index ?? metadata?.agentIndex ?? 0);
     if (!Number.isFinite(agentIndex) || agentIndex <= 0) {
-      console.log("Invalid agent index:", agentIndex);
       cursor = metaEnd + NEW_AGENT_SUFFIX.length;
       continue;
     }
-
-    console.log("Processing agent:", agentIndex);
 
     const contentStart = metaEnd + NEW_AGENT_SUFFIX.length;
     const endMarker = `${NEW_AGENT_END_PREFIX}${agentIndex}${NEW_AGENT_END_SUFFIX}`;
     const endIndex = text.indexOf(endMarker, contentStart);
     
-    console.log("Agent", agentIndex, "- contentStart:", contentStart, "endIndex:", endIndex);
-    
     // Simple extraction: content is between start and end marker (or end of text)
     const contentEnd = endIndex !== -1 ? endIndex : text.length;
     let rawContent = text.slice(contentStart, contentEnd);
-    
-    console.log("Raw content for agent", agentIndex, "length:", rawContent.length, "preview:", rawContent.substring(0, 100));
 
     // Clean up the content
     rawContent = rawContent.replace(/\[\[mesh-agent:[^\]]*\]\]/g, '');
     rawContent = rawContent.replace(/\[\[mesh-agent-end:\d+\]\]/g, '');
     rawContent = stripCompletionMarkers(rawContent).trim();
-    
-    console.log("Cleaned content for agent", agentIndex, "length:", rawContent.length);
 
     segments.push({
       agentIndex,
@@ -108,10 +91,8 @@ const extractNewFormatSegments = (text: string): MeshAgentSegment[] => {
 
     // Move cursor past the end marker or to the end of content
     cursor = endIndex !== -1 ? endIndex + endMarker.length : contentEnd;
-    console.log("Moving cursor to:", cursor);
   }
 
-  console.log("=== Extraction complete, found", segments.length, "segments ===");
   return segments;
 };
 

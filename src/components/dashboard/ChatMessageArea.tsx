@@ -89,15 +89,6 @@ export default function ChatMessageArea({
                 : extractMeshAgentSegments(textContent)
               : [];
 
-          console.log("Message Debug:", {
-            messageId: message.id,
-            role: message.role,
-            textContent: textContent.substring(0, 200),
-            parsedSegments,
-            isStreaming,
-            latestMessageId,
-          });
-
           const isStreamingMessage =
             isStreaming && message.id === latestMessageId;
           const shouldUseMultiAgent =
@@ -129,17 +120,9 @@ export default function ChatMessageArea({
                     isPending: isStreamingMessage,
                   };
                 })
-              : parsedSegments.length > 0
+                : parsedSegments.length > 0
                 ? parsedSegments.map(seg => ({ ...seg, isPending: false }))
                 : null;
-
-          console.log("Multi-Agent Segments:", {
-            shouldUseMultiAgent,
-            hasMultipleAgents,
-            activeAgentsCount: activeAgents.length,
-            multiAgentSegments,
-            isStreamingMessage,
-          });
 
           // Render multi-agent response with labeled sections
           if (
@@ -160,16 +143,6 @@ export default function ChatMessageArea({
                   const hasContent = segment.content.trim().length > 0;
                   const isPending = segment.isPending === true;
                   const isComplete = hasContent;
-                  
-                  console.log(`Agent ${segment.agentIndex} Status:`, {
-                    agentIndex: segment.agentIndex,
-                    hasContent,
-                    contentLength: segment.content.length,
-                    isPending,
-                    isComplete,
-                    provider: segment.provider,
-                    modelId: segment.modelId,
-                  });
                   
                   // Status: Complete if has content, Running if streaming and no content, Pending if not streaming and no content
                   const statusLabel = isComplete ? "Complete" : isPending ? "Running" : "Pending";

@@ -363,7 +363,7 @@ export default function ChatInput({
     setTimeout(persistAgentConfiguration, 0);
   };
 
-  const handleWebSearchChangeAll = (value: "none" | "native" | "firecrawl") => {
+  const handleWebSearchChangeAll = (value: "none" | "firecrawl") => {
     agentConfigs.forEach((agent, index) => {
       const next = agent.webSearch ?? "none";
       if (next !== value) {
@@ -428,22 +428,6 @@ export default function ChatInput({
         resolveSystemPrompt(agent.systemPromptKey),
       webSearch: agent.webSearch,
     }));
-
-    console.groupCollapsed("🤖 Agent Orchestration");
-    console.log("Total agents:", preparedAgents.length);
-    console.log("User prompt:", trimmed);
-    console.table(
-      preparedAgents.map((agent, index) => ({
-        Agent: index + 1,
-        Provider: agent.provider,
-        "Web Search": agent.webSearch ?? "none",
-        Model: agent.modelId ?? "(not selected)",
-        "System Prompt": agent.systemPrompt || "(empty)",
-      }))
-    );
-    console.log("OpenRouter key set:", settings.openRouterKey !== "");
-    console.log("Vercel Gateway key set:", settings.vercelAiGateway !== "");
-    console.groupEnd();
 
     void onSendMessage(trimmed, preparedAgents);
     setMessage("");
@@ -555,7 +539,7 @@ export default function ChatInput({
                     value={currentWebSearch}
                     onValueChange={(value) =>
                       handleWebSearchChangeAll(
-                        value as "none" | "native" | "firecrawl"
+                        value as "none" | "firecrawl"
                       )
                     }
                   >
@@ -564,7 +548,6 @@ export default function ChatInput({
                     </SelectTrigger>
                     <SelectContent className={PANEL_SELECT_CONTENT_CLASS}>
                       <SelectItem value="none">None</SelectItem>
-                      <SelectItem value="native">Native</SelectItem>
                       <SelectItem value="firecrawl">Firecrawl</SelectItem>
                     </SelectContent>
                   </Select>

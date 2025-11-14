@@ -7,6 +7,7 @@ import {
   loadUserKeys,
   RequestPayload,
 } from "@/lib/server/chat-route-utils";
+import FirecrawlApp from "@mendable/firecrawl-js";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const VERCEL_BASE_URL = process.env.VERCEL_AI_GATEWAY_URL ??
@@ -48,6 +49,119 @@ const getVercelKey = async (accessToken: string) => {
     null
   );
 };
+
+const getFirecrawlKey = () => {
+  return process.env.FIRECRAWL_API_KEY ?? null;
+};
+
+// Extract URLs from a message using a robust regex
+const extractUrls = (text: string): string[] => {
+  const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g;
+  const matches = text.match(urlRegex);
+  return matches ? [...new Set(matches)] : [];
+};
+
+// Clean and format markdown content for better AI consumption
+const formatScrapedContent = (markdown: string, metadata?: any): string => {
+  let content = markdown.trim();
+  
+  // Remove excessive newlines (more than 2 consecutive)
+  content = content.replace(/\n{3,}/g, '\n\n');
+  
+  // Build a structured header with metadata if available
+  const headers: string[] = [];
+  if (metadata?.title) {
+    headers.push(`# ${metadata.title}`);
+  }
+  if (metadata?.description) {
+    headers.push(`\n**Description:** ${metadata.description}`);
+  }
+  if (metadata?.author) {
+    headers.push(`**Author:** ${metadata.author}`);
+  }
+  if (metadata?.publishedDate || metadata?.publishDate) {
+    const date = metadata.publishedDate || metadata.publishDate;
+    headers.push(`**Published:** ${date}`);
+  }
+  if (metadata?.keywords && Array.isArray(metadata.keywords) && metadata.keywords.length > 0) {
+    headers.push(`**Keywords:** ${metadata.keywords.join(', ')}`);
+  }
+  
+  if (headers.length > 0) {
+    content = `${headers.join('\n')}\n\n---\n\n${content}`;
+  }
+  
+  return content;
+};
+
+// Scrape URLs using Firecrawl with enhanced data extraction
+async function scrapeWithFirecrawl(urls: string[]): Promise<string> {
+  const apiKey = getFirecrawlKey();
+  if (!apiKey) {
+    return "\n⚠️ **Firecrawl API key not configured.** Set FIRECRAWL_API_KEY environment variable to enable web scraping.";
+  }
+
+  try {
+    const app = new FirecrawlApp({ apiKey });
+    const results: string[] = [];
+
+    for (const url of urls) {
+      try {
+        const scrapeResult = await app.scrape(url, {
+          formats: ["markdown", "html"],
+          onlyMainContent: true,
+          includeTags: ["article", "main", "content"],
+          excludeTags: ["nav", "footer", "header", "aside", "script", "style"],
+          waitFor: 2000,
+        }) as any;
+        
+        if (scrapeResult && scrapeResult.markdown) {
+          const formattedContent = formatScrapedContent(
+            scrapeResult.markdown,
+            scrapeResult.metadata
+          );
+          
+          // Add structured header
+          results.push(
+            `\n## 🌐 Scraped Content: ${url}\n\n${formattedContent}\n`
+          );
+        } else if (scrapeResult && scrapeResult.html) {
+          // Fallback to HTML if markdown not available
+          results.push(
+            `\n## 🌐 Content from: ${url}\n\n${scrapeResult.html.substring(0, 5000)}...\n`
+          );
+        } else {
+          results.push(
+            `\n⚠️ **Failed to scrape:** ${url}\nNo content returned from Firecrawl.\n`
+          );
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        results.push(
+          `\n❌ **Error scraping:** ${url}\n**Error:** ${message}\n`
+        );
+      }
+    }
+
+    if (results.length === 0) {
+      return "";
+    }
+
+    // Build a comprehensive header for all scraped content
+    const header = [
+      "\n" + "=".repeat(80),
+      "📚 WEB CONTENT SCRAPED BY FIRECRAWL",
+      `📊 Successfully scraped ${results.length} URL(s)`,
+      "💡 Use this information to provide accurate, sourced answers",
+      "=".repeat(80),
+    ].join("\n");
+
+    return `${header}\n${results.join("\n---\n")}`;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return `\n❌ **Firecrawl Error:** ${message}`;
+  }
+}
 
 async function callOpenRouter(
   apiKey: string,
@@ -196,20 +310,38 @@ export const Route = createFileRoute(API_ROUTE_PATH as never)({
                 let body = "";
 
                 try {
+                  // Handle web scraping if enabled
+                  let scrapedContent = "";
+                  if (agent.webSearch === "firecrawl") {
+                    const urls = extractUrls(payload.currentMessage!);
+                    if (urls.length > 0) {
+                      scrapedContent = await scrapeWithFirecrawl(urls);
+                    }
+                  }
+
+                  // Build messages with scraped content if available
+                  const history = await getChatMessages(
+                    accessToken,
+                    payload.chatId
+                  );
+                  
+                  let messageContent = payload.currentMessage!;
+                  if (scrapedContent) {
+                    // Enhance the prompt with instructions on how to use the scraped content
+                    messageContent = `${payload.currentMessage}\n\n${scrapedContent}\n\n---\n\n**Instructions:**\n- Use the scraped web content above to answer the user's question\n- Cite specific information from the sources when relevant\n- If the content doesn't fully answer the question, acknowledge what's missing\n- Provide accurate, well-sourced information based on the scraped content`;
+                  }
+
+                  const messages = buildChatMessages(
+                    history,
+                    messageContent,
+                    agent.systemPrompt
+                  );
+
                   if (agent.provider === "openrouter") {
                     const apiKey = await getOpenRouterKey(accessToken);
                     if (!apiKey) {
                       body = `Error: No OpenRouter API key configured for agent ${idx}`;
                     } else {
-                      const history = await getChatMessages(
-                        accessToken,
-                        payload.chatId
-                      );
-                      const messages = buildChatMessages(
-                        history,
-                        payload.currentMessage!,
-                        agent.systemPrompt
-                      );
                       body = await callOpenRouter(
                         apiKey,
                         resolvedModelId,
@@ -221,15 +353,6 @@ export const Route = createFileRoute(API_ROUTE_PATH as never)({
                     if (!apiKey) {
                       body = `Error: No Vercel API key configured for agent ${idx}`;
                     } else {
-                      const history = await getChatMessages(
-                        accessToken,
-                        payload.chatId
-                      );
-                      const messages = buildChatMessages(
-                        history,
-                        payload.currentMessage!,
-                        agent.systemPrompt
-                      );
                       body = await callVercelGateway(
                         apiKey,
                         resolvedModelId,

@@ -11,8 +11,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SettingsIcon, Plus, Trash2, Eye, EyeOff } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  SettingsIcon,
+  Plus,
+  Trash2,
+  Eye,
+  EyeOff,
+  DollarSign,
+  RefreshCw,
+} from "lucide-react";
 import { getSettings, saveSettings, type Settings } from "@/lib/settings";
+import { useVercelCredits, useOpenRouterCredits } from "@/lib/credits";
 import { useAuthStore } from "@/zustand/AuthStore";
 import { api } from "../../../convex/_generated/api";
 import { toast } from "sonner";
@@ -39,6 +49,30 @@ export default function SettingsDialog() {
   const callAuthenticatedAction = useAuthStore(
     (state) => state.callAuthenticatedAction
   );
+
+  // Fetch Vercel AI Gateway credits
+  const {
+    data: vercelCredits,
+    isLoading: vercelLoading,
+    error: vercelError,
+    dataUpdatedAt: vercelUpdatedAt,
+    refetch: refetchVercel,
+  } = useVercelCredits(open);
+
+  // Fetch OpenRouter credits
+  const {
+    data: openRouterCredits,
+    isLoading: openRouterLoading,
+    error: openRouterError,
+    dataUpdatedAt: openRouterUpdatedAt,
+    refetch: refetchOpenRouter,
+  } = useOpenRouterCredits(open);
+
+  const handleRefreshAll = () => {
+    refetchVercel();
+    refetchOpenRouter();
+    toast.success("Refreshing credits...");
+  };
 
   const form = useForm({
     defaultValues: {
@@ -335,43 +369,207 @@ export default function SettingsDialog() {
                   </div>
                 )}
               </form.Field>
+
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <form.Subscribe
+                  selector={(state) => [state.canSubmit, state.isSubmitting]}
+                >
+                  {([canSubmit, isSubmitting]) => (
+                    <Button
+                      type="submit"
+                      disabled={!canSubmit || isLoadingKeys}
+                    >
+                      {isSubmitting || isLoadingKeys
+                        ? "Saving..."
+                        : "Save Settings"}
+                    </Button>
+                  )}
+                </form.Subscribe>
+              </div>
             </TabsContent>
 
             <TabsContent value="tools" className="space-y-4 mt-4">
-              <div className="text-center py-12">
-                <p className="text-muted-foreground text-sm">
-                  Additional tools coming soon, innit! 🚀
-                </p>
-                <p className="text-muted-foreground text-xs mt-2">
-                  We're cooking up some proper features for you.
-                </p>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">API Credits & Usage</h3>
+                </div>
+
+                {/* Vercel AI Gateway Credits */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between w-full">
+                      <CardTitle className="flex items-center gap-2">
+                        <DollarSign className="size-5" />
+                        Vercel AI Gateway
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(vercelUpdatedAt).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {vercelLoading ? (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <RefreshCw className="size-4 animate-spin" />
+                        <span>Loading credits...</span>
+                      </div>
+                    ) : vercelError ? (
+                      <div className="text-destructive text-sm">
+                        <p className="font-medium">Failed to load credits</p>
+                        <p className="text-xs mt-1">
+                          {vercelError instanceof Error
+                            ? vercelError.message
+                            : "Please check your API key"}
+                        </p>
+                      </div>
+                    ) : !vercelCredits ? (
+                      <p className="text-sm text-muted-foreground">
+                        No API key configured. Add your Vercel AI Gateway key in
+                        Main Settings.
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">
+                            Balance:
+                          </span>
+                          <span className="text-lg font-bold">
+                            $
+                            {typeof vercelCredits.balance === "string"
+                              ? parseFloat(vercelCredits.balance).toFixed(2)
+                              : typeof vercelCredits.balance === "number"
+                                ? vercelCredits.balance.toFixed(2)
+                                : "0.00"}
+                          </span>
+                        </div>
+                        {vercelCredits.total_used !== undefined && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">
+                              Total Used:
+                            </span>
+                            <span className="text-sm font-medium">
+                              $
+                              {typeof vercelCredits.total_used === "string"
+                                ? parseFloat(vercelCredits.total_used).toFixed(
+                                    2
+                                  )
+                                : typeof vercelCredits.total_used === "number"
+                                  ? vercelCredits.total_used.toFixed(2)
+                                  : "0.00"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* OpenRouter Credits */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between w-full">
+                      <CardTitle className="flex items-center gap-2">
+                        <DollarSign className="size-5" />
+                        OpenRouter
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(openRouterUpdatedAt).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {openRouterLoading ? (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <RefreshCw className="size-4 animate-spin" />
+                        <span>Loading credits...</span>
+                      </div>
+                    ) : openRouterError ? (
+                      <div className="text-destructive text-sm">
+                        <p className="font-medium">Failed to load credits</p>
+                        <p className="text-xs mt-1">
+                          {openRouterError instanceof Error
+                            ? openRouterError.message
+                            : "Please check your API key"}
+                        </p>
+                      </div>
+                    ) : !openRouterCredits ? (
+                      <p className="text-sm text-muted-foreground">
+                        No API key configured. Add your OpenRouter key in Main
+                        Settings.
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">
+                            Balance:
+                          </span>
+                          <span className="text-lg font-bold">
+                            $
+                            {openRouterCredits.data?.limit
+                              ? (
+                                  openRouterCredits.data.limit -
+                                  (openRouterCredits.data.usage || 0)
+                                ).toFixed(2)
+                              : "0.00"}
+                          </span>
+                        </div>
+                        {openRouterCredits.data?.usage !== undefined && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">
+                              Usage:
+                            </span>
+                            <span className="text-sm font-medium">
+                              $
+                              {openRouterCredits.data.usage?.toFixed(2) ||
+                                "0.00"}
+                            </span>
+                          </div>
+                        )}
+                        {openRouterCredits.data?.limit !== undefined && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">
+                              Limit:
+                            </span>
+                            <span className="text-sm font-medium">
+                              $
+                              {openRouterCredits.data.limit?.toFixed(2) ||
+                                "0.00"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <RefreshCw className="size-3 animate-spin" />
+                    Updates every 30 seconds
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefreshAll}
+                    disabled={vercelLoading || openRouterLoading}
+                    className="h-8"
+                  >
+                    <RefreshCw
+                      className={`size-3 mr-1 ${vercelLoading || openRouterLoading ? "animate-spin" : ""}`}
+                    />
+                    Refresh Now
+                  </Button>
+                </div>
               </div>
             </TabsContent>
           </Tabs>
-
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
-              Cancel
-            </Button>
-            <form.Subscribe
-              selector={(state) => [state.canSubmit, state.isSubmitting]}
-            >
-              {([canSubmit, isSubmitting]) => (
-                <Button
-                  type="submit"
-                  disabled={!canSubmit || isLoadingKeys}
-                >
-                  {isSubmitting || isLoadingKeys
-                    ? "Saving..."
-                    : "Save Settings"}
-                </Button>
-              )}
-            </form.Subscribe>
-          </div>
         </form>
       </DialogContent>
     </Dialog>

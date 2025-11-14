@@ -41,7 +41,7 @@ export interface StoredAgentConfig {
   provider: "vercel" | "openrouter";
   modelId?: string;
   systemPrompt: string;
-  webSearch?: "none" | "native" | "firecrawl";
+  webSearch?: "none" | "firecrawl";
 }
 
 export const formatTimestamp = (timestamp: number) => {
