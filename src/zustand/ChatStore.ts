@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import type { UIMessage } from "ai";
 import { convexClient } from "@/lib/convexClient";
+import { extractMeshAgentSegments, type MeshAgentSegment } from "@/lib/mesh/segments";
 import { api } from "../../convex/_generated/api";
 import {
   mapServerChat,
@@ -17,11 +18,15 @@ import { useAuthStore } from "@/zustand/AuthStore";
 
 type ActionReference = Parameters<typeof convexClient.action>[0];
 
+type MeshAwareMessage = UIMessage & {
+  meshSegments?: MeshAgentSegment[];
+};
+
 type ChatStoreState = {
   conversations: Chat[];
   selectedChatId: string | null;
   isNewChatMode: boolean;
-  messages: UIMessage[];
+  messages: MeshAwareMessage[];
   isStreaming: boolean;
   activeAgents: PreparedAgentConfig[];
   initialize: () => Promise<void>;
@@ -52,10 +57,11 @@ const getChatsRef = (name: string, fallback: string): ActionReference => {
   return reference ?? (fallback as unknown as ActionReference);
 };
 
-const toUIMessage = (message: Message): UIMessage => ({
+const toUIMessage = (message: Message): MeshAwareMessage => ({
   id: message.id,
   role: message.role,
   parts: [{ type: "text" as const, text: message.content }],
+  meshSegments: extractMeshAgentSegments(message.content),
 });
 
 const mapToPreparedAgents = (
@@ -101,6 +107,12 @@ const PROVIDER_ENDPOINTS: Record<PreparedAgentConfig["provider"], string> = {
 } as const;
 
 const resolveAiEndpoint = (agents: PreparedAgentConfig[]): string => {
+  // If multiple agents are configured, use the mesh endpoint which
+  // parallelizes calls and streams per-agent results.
+  if (Array.isArray(agents) && agents.length > 1) {
+    return "/api/mesh";
+  }
+
   if (!Array.isArray(agents) || agents.length === 0) {
     return PROVIDER_ENDPOINTS.openrouter;
   }
@@ -306,7 +318,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
     const state = get();
     const now = Date.now();
 
-    const userUIMessage: UIMessage = {
+    const userUIMessage: MeshAwareMessage = {
       id: crypto.randomUUID(),
       role: "user",
       parts: [{ type: "text" as const, text: trimmedMessage }],
@@ -381,10 +393,11 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
         );
       }
 
-      const assistantUIMessage: UIMessage = {
+      const assistantUIMessage: MeshAwareMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
         parts: [{ type: "text" as const, text: "" }],
+        meshSegments: [],
       };
       assistantMessageId = assistantUIMessage.id;
 
@@ -476,12 +489,14 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
           if (chunk) {
             assistantText += chunk;
             const latestText = assistantText;
+            const meshSegments = extractMeshAgentSegments(latestText);
             set((current) => ({
               messages: current.messages.map((message) =>
                 message.id === assistantMessageId
                   ? {
                       ...message,
                       parts: [{ type: "text" as const, text: latestText }],
+                      meshSegments,
                     }
                   : message
               ),
@@ -495,6 +510,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
       }
 
       const finalAssistantText = assistantText;
+      const finalSegments = extractMeshAgentSegments(finalAssistantText);
 
       await authState.callAuthenticatedAction(appendRef, {
         chatId,
@@ -532,6 +548,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
             ? {
                 ...message,
                 parts: [{ type: "text" as const, text: finalAssistantText }],
+                meshSegments: finalSegments,
               }
             : message
         );
@@ -549,6 +566,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
         error instanceof Error && error.message
           ? `Error: ${error.message}`
           : "An unexpected error occurred while generating the reply.";
+      const fallbackSegments = extractMeshAgentSegments(fallbackText);
 
       set((current) => {
         if (!assistantMessageId) {
@@ -576,6 +594,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
             ? {
                 ...message,
                 parts: [{ type: "text" as const, text: fallbackText }],
+                meshSegments: fallbackSegments,
               }
             : message
         );
