@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: meshmind
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: oregon
+    plan: free
+    envVars:
+      - key: VITE_CONVEX_URL
+        sync: false
+    healthCheckPath: /
