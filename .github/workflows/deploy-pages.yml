@@ -37,36 +37,66 @@ jobs:
 
       - name: Prepare static site
         run: |
-          # Create a simple index.html that loads the client bundle
-          MAIN_JS=$(find dist/client/assets -name 'main-*.js' | head -n 1 | sed 's|dist/client/||')
-          DASHBOARD_CSS=$(find dist/client/assets -name 'dashboard-*.css' | head -n 1 | sed 's|dist/client/||')
+          cd dist/client
           
-          echo "Creating index.html with:"
-          echo "  Main JS: $MAIN_JS"
-          echo "  Main CSS: $DASHBOARD_CSS"
+          # Find all CSS and JS entry files
+          echo "Available assets:"
+          ls -lh assets/ | head -20
           
-          cat > dist/client/index.html << EOF
+          # Look for entry point files
+          MAIN_JS=$(ls assets/main-*.js 2>/dev/null | head -n 1)
+          INDEX_JS=$(ls assets/index-*.js 2>/dev/null | head -n 1)
+          DASHBOARD_JS=$(ls assets/dashboard-*.js 2>/dev/null | head -n 1)
+          STYLES_CSS=$(ls assets/styles-*.css 2>/dev/null | head -n 1)
+          DASHBOARD_CSS=$(ls assets/dashboard-*.css 2>/dev/null | head -n 1)
+          
+          # Use whichever JS file we found
+          ENTRY_JS="${MAIN_JS:-${INDEX_JS:-${DASHBOARD_JS}}}"
+          ENTRY_CSS="${STYLES_CSS:-${DASHBOARD_CSS}}"
+          
+          echo "Using:"
+          echo "  JS: $ENTRY_JS"
+          echo "  CSS: $ENTRY_CSS"
+          
+          # Create index.html
+          cat > index.html << 'HTMLEOF'
           <!DOCTYPE html>
           <html lang="en">
             <head>
               <meta charset="UTF-8" />
               <meta name="viewport" content="width=device-width, initial-scale=1.0" />
               <title>MeshMind</title>
-              <link rel="stylesheet" href="./${DASHBOARD_CSS}">
+              __CSS_LINK__
             </head>
             <body>
               <div id="root"></div>
-              <script type="module" src="./${MAIN_JS}"></script>
+              __JS_SCRIPT__
             </body>
           </html>
-          EOF
+          HTMLEOF
+          
+          # Add CSS if found
+          if [ -n "$ENTRY_CSS" ]; then
+            sed -i "s|__CSS_LINK__|<link rel=\"stylesheet\" href=\"$ENTRY_CSS\">|" index.html
+          else
+            sed -i "s|__CSS_LINK__||" index.html
+          fi
+          
+          # Add JS if found
+          if [ -n "$ENTRY_JS" ]; then
+            sed -i "s|__JS_SCRIPT__|<script type=\"module\" src=\"$ENTRY_JS\"></script>|" index.html
+          else
+            sed -i "s|__JS_SCRIPT__||" index.html
+          fi
           
           # Copy for SPA routing
-          cp dist/client/index.html dist/client/404.html
+          cp index.html 404.html
           
-          echo "✓ Created index.html and 404.html in dist/client"
-          echo "Files in dist/client:"
-          ls -la dist/client/
+          echo "✓ Created index.html"
+          echo "Content:"
+          cat index.html
+          
+          cd ../..
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
