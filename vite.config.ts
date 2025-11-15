@@ -1,39 +1,19 @@
 import { defineConfig } from 'vite'
 import tsConfigPaths from 'vite-tsconfig-paths'
-import { tanstackStart } from '@tanstack/react-start/plugin/vite'
-import react from '@vitejs/plugin-react'
 import { cloudflare } from '@cloudflare/vite-plugin'
-
-const isProd = process.env.CLOUDFLARE === 'true'
+import { tanstackStart } from '@tanstack/react-start/plugin/vite'
+import viteReact from '@vitejs/plugin-react'
 
 export default defineConfig({
+  server: {
+    port: 3000,
+  },
   plugins: [
-    tsConfigPaths(),
-    react(),
+    tsConfigPaths({
+      projects: ['./tsconfig.json'],
+    }),
+    cloudflare({ viteEnvironment: { name: 'ssr' } }),
     tanstackStart(),
-
-    // Only use Cloudflare plugin when deploying
-    ...(isProd
-      ? [
-          cloudflare({
-            // Let Vite fully bundle the worker,
-            // do NOT let Cloudflare’s esbuild bundle anything
-            remoteBindings: true,
-            // Required for SSR correctness
-            viteEnvironment: { name: 'ssr' },
-          }),
-        ]
-      : []),
+    viteReact(),
   ],
-
-  ssr: {
-    // Prevent KaTeX from getting bundled into worker (fixes fonts crash)
-    external: ['katex'],
-  },
-
-  build: {
-    assetsInlineLimit: 0,
-    modulePreload: false, // fix for Workers streaming issues
-    cssCodeSplit: true,
-  },
 })
