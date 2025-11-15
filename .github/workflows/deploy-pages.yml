@@ -35,31 +35,43 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Debug build output
-        run: |
-          echo "=== Workspace root ==="
-          ls -la
-          echo ""
-          echo "=== dist folder ==="
-          ls -la dist/ || echo "dist/ does not exist"
-          echo ""
-          echo "=== dist contents (recursive) ==="
-          find dist -type f 2>/dev/null || echo "No files in dist"
-
       - name: Prepare static site
         run: |
-          # Copy index.html to 404.html for SPA routing
-          if [ -f dist/index.html ]; then
-            cp dist/index.html dist/404.html
-            echo "✓ Created 404.html fallback"
-          else
-            echo "✗ dist/index.html not found, skipping 404.html creation"
-          fi
+          # Create a simple index.html that loads the client bundle
+          MAIN_JS=$(find dist/client/assets -name 'main-*.js' | head -n 1 | sed 's|dist/client/||')
+          DASHBOARD_CSS=$(find dist/client/assets -name 'dashboard-*.css' | head -n 1 | sed 's|dist/client/||')
+          
+          echo "Creating index.html with:"
+          echo "  Main JS: $MAIN_JS"
+          echo "  Main CSS: $DASHBOARD_CSS"
+          
+          cat > dist/client/index.html << EOF
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              <title>MeshMind</title>
+              <link rel="stylesheet" href="/${DASHBOARD_CSS}">
+            </head>
+            <body>
+              <div id="root"></div>
+              <script type="module" src="/${MAIN_JS}"></script>
+            </body>
+          </html>
+          EOF
+          
+          # Copy for SPA routing
+          cp dist/client/index.html dist/client/404.html
+          
+          echo "✓ Created index.html and 404.html in dist/client"
+          echo "Files in dist/client:"
+          ls -la dist/client/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: dist/client
 
   deploy:
     environment:
