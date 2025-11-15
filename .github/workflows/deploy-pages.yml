@@ -43,19 +43,19 @@ jobs:
           echo "Available assets:"
           ls -lh assets/ | head -20
           
-          # Look for entry point files
-          MAIN_JS=$(ls assets/main-*.js 2>/dev/null | head -n 1)
+          # Look for entry point files - prioritize index over main
           INDEX_JS=$(ls assets/index-*.js 2>/dev/null | head -n 1)
+          MAIN_JS=$(ls assets/main-*.js 2>/dev/null | head -n 1)
           DASHBOARD_JS=$(ls assets/dashboard-*.js 2>/dev/null | head -n 1)
+          INDEX_CSS=$(ls assets/index-*.css 2>/dev/null | head -n 1)
           STYLES_CSS=$(ls assets/styles-*.css 2>/dev/null | head -n 1)
           DASHBOARD_CSS=$(ls assets/dashboard-*.css 2>/dev/null | head -n 1)
           
-          # Use whichever JS file we found
-          ENTRY_JS="${MAIN_JS:-${INDEX_JS:-${DASHBOARD_JS}}}"
-          ENTRY_CSS="${STYLES_CSS:-${DASHBOARD_CSS}}"
+          # Use whichever JS/CSS file we found (prefer index)
+          ENTRY_JS="${INDEX_JS:-${MAIN_JS:-${DASHBOARD_JS}}}"
+          ENTRY_CSS="${INDEX_CSS:-${STYLES_CSS:-${DASHBOARD_CSS}}}"
           
           echo "Using:"
-          echo "  JS: $ENTRY_JS"
           echo "  CSS: $ENTRY_CSS"
           
           # Create index.html
