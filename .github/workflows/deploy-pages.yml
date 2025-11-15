@@ -35,10 +35,19 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Prepare static site
+        run: |
+          # Copy index.html to 404.html for SPA routing
+          cp dist/index.html dist/404.html
+          echo "✓ Created 404.html fallback"
+          # Show what we're deploying
+          echo "Deploying:"
+          ls -la dist/
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist/client
+          path: dist
 
   deploy:
     environment:
