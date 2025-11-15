@@ -1,6 +1,5 @@
   name = "meshmind"
   compatibility_date = "2025-09-02"
   compatibility_flags = ["nodejs_compat"]
-  main = "dist/server/server.js"
   [observability]
   enabled = true
