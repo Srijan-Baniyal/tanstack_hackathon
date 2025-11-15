@@ -6,7 +6,8 @@
     "dev": "vite dev --port 3000",
     "build": "vite build",
     "serve": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "deploy": "pnpm run build && npx wrangler deploy"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^2.0.8",
