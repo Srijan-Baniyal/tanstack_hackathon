@@ -10,7 +10,6 @@ import {
   verifyAccessToken,
   verifyRefreshToken,
 } from "./token";
-import { sendPasswordResetEmail } from "./email";
 import { Id } from "./_generated/dataModel";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { internal } from "./_generated/api";
@@ -304,8 +303,7 @@ const completeGithubOAuth = async (params: {
         client_secret: params.clientSecret,
         code: params.code,
         redirect_uri: params.redirectUri,
-        code_verifier: params.codeVerifier,
-        state: params.state,
+        // GitHub doesn't support PKCE, so we don't send code_verifier
       }),
     }
   );
@@ -510,7 +508,7 @@ export const startOAuth: PublicAction = action({
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = generateCodeChallenge(codeVerifier);
     const timestamp = Date.now();
-    const expiresAt = timestamp + 10 * 60 * 1000;
+    const expiresAt = timestamp + 15 * 60 * 1000; // 15 minutes for OAuth flow
 
     const authInternals = internal.auth as any;
 
@@ -549,8 +547,6 @@ export const startOAuth: PublicAction = action({
       url.searchParams.set("redirect_uri", redirectUri);
       url.searchParams.set("scope", "read:user user:email");
       url.searchParams.set("state", state);
-      url.searchParams.set("code_challenge", codeChallenge);
-  url.searchParams.set("code_challenge_method", "S256");
       url.searchParams.set("allow_signup", "true");
       authorizationUrl = url.toString();
     }
@@ -602,6 +598,7 @@ export const completeOAuth: PublicAction = action({
         throw new ConvexError("OAuth session expired. Please try again.");
       }
 
+      // Delete state record before continuing (only once)
       await ctx.runMutation(authInternals.internalDeleteOAuthState, {
         stateId: stateRecord._id,
       });
@@ -728,7 +725,6 @@ export const requestPasswordReset: PublicAction = action({
       expiresAt,
     });
 
-    await sendPasswordResetEmail(email, token);
   },
 });
 
@@ -754,55 +750,6 @@ export const resetPassword: PublicAction = action({
       userId: record._id,
       passwordHash,
     });
-  },
-});
-
-export const updateProfile: PublicAction = action({
-  args: {
-    accessToken: v.string(),
-    fullName: v.string(),
-    email: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const payload = verifyAccessToken(args.accessToken);
-    const userId = payload.userId as Id<"users">;
-    const fullName = args.fullName.trim();
-    if (!fullName) {
-      throw new ConvexError("Full name is required.");
-    }
-
-    const email = normalizeEmail(args.email);
-    const existing = await ctx.runQuery(internal.auth.internalGetUserByEmail, {
-      email,
-    });
-    if (existing && existing._id !== userId) {
-      throw new ConvexError("Another account already uses this email.");
-    }
-
-    await ctx.runMutation(internal.auth.internalUpdateUserProfile, {
-      userId,
-      email,
-      fullName,
-      timestamp: Date.now(),
-    });
-
-    const user = await ctx.runQuery(internal.auth.internalGetUserById, {
-      userId,
-    });
-    if (!user) {
-      throw new ConvexError("User not found.");
-    }
-
-    const tokens = buildTokens({
-      userId: userId as string,
-      uuid: user.uuid,
-      email: user.email,
-    });
-
-    return {
-      user: sanitizeUser(user),
-      tokens,
-    };
   },
 });
 
@@ -848,17 +795,89 @@ export const changePassword: PublicAction = action({
   },
 });
 
-export const deleteAccount: PublicAction = action({
+export const updateProfile: PublicAction = action({
   args: {
     accessToken: v.string(),
+    fullName: v.string(),
+    email: v.string(),
   },
   handler: async (ctx, args) => {
-    const payload = verifyAccessToken(args.accessToken);
-    const userId = payload.userId as Id<"users">;
+    try {
+      const payload = verifyAccessToken(args.accessToken);
+      const userId = payload.userId as Id<"users">;
+      const timestamp = Date.now();
 
-    await ctx.runMutation(internal.auth.internalDeleteUserCascade, {
-      userId,
-    });
+      // Get current user info for comparison
+      const currentUser = await ctx.runQuery(internal.auth.internalGetUserById, {
+        userId,
+      });
+
+      if (!currentUser) {
+        throw new ConvexError("User not found.");
+      }
+
+      const trimmedName = args.fullName.trim();
+      const normalizedEmail = args.email.trim().toLowerCase();
+
+      if (!trimmedName) {
+        throw new ConvexError("Full name is required.");
+      }
+
+      if (!normalizedEmail) {
+        throw new ConvexError("Email is required.");
+      }
+
+      // Check if email is being changed for OAuth users
+      if (currentUser.providerType && normalizedEmail !== currentUser.email) {
+        throw new ConvexError("Email cannot be changed for OAuth accounts.");
+      }
+
+      // Check if there are actual changes
+      const hasNameChange = trimmedName !== currentUser.fullName;
+      const hasEmailChange = normalizedEmail !== currentUser.email;
+
+      if (!hasNameChange && !hasEmailChange) {
+        // No changes, just return current user
+        return {
+          user: sanitizeUser(currentUser),
+          tokens: buildTokens(payload),
+        };
+      }
+
+      // Update the profile
+      await ctx.runMutation(internal.auth.internalUpdateUserProfile, {
+        userId,
+        email: normalizedEmail,
+        fullName: trimmedName,
+        timestamp,
+      });
+
+      // Get updated user
+      const updatedUser = await ctx.runQuery(internal.auth.internalGetUserById, {
+        userId,
+      });
+
+      if (!updatedUser) {
+        throw new ConvexError("Failed to update user.");
+      }
+
+      // Send profile update email
+      const changes: string[] = [];
+      if (hasNameChange) changes.push("name");
+      if (hasEmailChange) changes.push("email");
+
+      return {
+        user: sanitizeUser(updatedUser),
+        tokens: buildTokens(payload),
+      };
+    } catch (error: any) {
+      if (error.name === "TokenExpiredError") {
+        throw new ConvexError(
+          "Access token expired. Please refresh your session."
+        );
+      }
+      throw error;
+    }
   },
 });
 
@@ -875,10 +894,35 @@ export const upsertUserKeys: PublicAction = action({
       const payload = verifyAccessToken(args.accessToken);
       const userId = payload.userId as Id<"users">;
       const timestamp = Date.now();
+
       await ctx.runMutation(internal.auth.internalUpdateKeys, {
         userId,
         keys: args.keys,
         timestamp,
+      });
+
+      // Send congrats emails for newly added keys
+    } catch (error: any) {
+      if (error.name === "TokenExpiredError") {
+        throw new ConvexError(
+          "Access token expired. Please refresh your session."
+        );
+      }
+      throw error;
+    }
+  },
+});
+
+export const deleteAccount: PublicAction = action({
+  args: {
+    accessToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const payload = verifyAccessToken(args.accessToken);
+      const userId = payload.userId as Id<"users">;
+      await ctx.runMutation(internal.auth.internalDeleteUserCascade, {
+        userId,
       });
     } catch (error: any) {
       if (error.name === "TokenExpiredError") {

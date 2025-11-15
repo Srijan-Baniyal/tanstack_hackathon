@@ -238,7 +238,10 @@ export const internalDeleteOAuthState = internalMutation({
     stateId: v.id("oauthStates"),
   },
   handler: async (ctx, args) => {
-    await ctx.db.delete(args.stateId);
+    const existing = await ctx.db.get(args.stateId);
+    if (existing) {
+      await ctx.db.delete(args.stateId);
+    }
   },
 });
 
@@ -331,6 +334,7 @@ export const internalDeleteUserCascade = internalMutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    // Delete all chats and their messages
     const chatsQuery = (ctx.db as any).query("chats");
     const chats = await chatsQuery
       .withIndex("by_user", (q: any) => q.eq("userId", args.userId))
@@ -348,6 +352,7 @@ export const internalDeleteUserCascade = internalMutation({
       await ctx.db.delete(chat._id);
     }
 
+    // Delete user API keys (this clears OpenRouter and Vercel API keys from DB)
     const keysQuery = (ctx.db as any).query("userKeys");
     const userKeys = await keysQuery
       .withIndex("by_user", (q: any) => q.eq("userId", args.userId))
@@ -357,6 +362,7 @@ export const internalDeleteUserCascade = internalMutation({
       await ctx.db.delete(userKeys._id);
     }
 
+    // Delete the user account
     await ctx.db.delete(args.userId);
   },
 });

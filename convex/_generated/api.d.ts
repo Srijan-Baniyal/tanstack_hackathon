@@ -12,7 +12,6 @@ import type * as auth from "../auth.js";
 import type * as authActions from "../authActions.js";
 import type * as chats from "../chats.js";
 import type * as chatsInternal from "../chatsInternal.js";
-import type * as email from "../email.js";
 import type * as password from "../password.js";
 import type * as token from "../token.js";
 
@@ -27,7 +26,6 @@ declare const fullApi: ApiFromModules<{
   authActions: typeof authActions;
   chats: typeof chats;
   chatsInternal: typeof chatsInternal;
-  email: typeof email;
   password: typeof password;
   token: typeof token;
 }>;

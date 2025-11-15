@@ -14,6 +14,12 @@ export default function Navbar() {
               </span>
             </div>
             <div className="flex items-center space-x-4">
+              <Link
+                to="/about"
+                className="text-foreground hover:text-primary transition-colors"
+              >
+                About
+              </Link>
               <ThemeSwitcher />
             </div>
           </div>

@@ -12,6 +12,8 @@ import { useChatStore } from "@/zustand/ChatStore";
 import type { UIMessage } from "ai";
 import { Loader2 } from "lucide-react";
 import { Streamdown } from "streamdown";
+import { useQuery } from "@tanstack/react-query";
+import { getSettings } from "@/lib/settings";
 
 const getUserInitials = (
   fullName: string | undefined,
@@ -73,6 +75,14 @@ export default function ChatMessageArea({
       ? displayMessages[displayMessages.length - 1]?.id
       : null;
 
+  // Auto-refresh settings every 2 seconds to get latest system prompts
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => getSettings(),
+    refetchInterval: 2000,
+    staleTime: 1000,
+  });
+
   return (
     <ScrollArea className="h-full p-4 md:p-6">
       <div className="space-y-4 max-w-3xl mx-auto">
@@ -121,7 +131,7 @@ export default function ChatMessageArea({
                   };
                 })
                 : parsedSegments.length > 0
-                ? parsedSegments.map(seg => ({ ...seg, isPending: false }))
+                ? parsedSegments.map((seg) => ({ ...seg, isPending: false }))
                 : null;
 
           // Render multi-agent response with labeled sections
@@ -143,19 +153,27 @@ export default function ChatMessageArea({
                   const hasContent = segment.content.trim().length > 0;
                   const isPending = segment.isPending === true;
                   const isComplete = hasContent;
-                  
+
                   // Status: Complete if has content, Running if streaming and no content, Pending if not streaming and no content
-                  const statusLabel = isComplete ? "Complete" : isPending ? "Running" : "Pending";
+                  const statusLabel = isComplete
+                    ? "Complete"
+                    : isPending
+                    ? "Running"
+                    : "Pending";
                   const statusClasses = isComplete
                     ? "bg-emerald-500/10 text-emerald-400"
                     : isPending
-                      ? "bg-blue-500/10 text-blue-400"
-                      : "bg-muted text-muted-foreground";
+                    ? "bg-blue-500/10 text-blue-400"
+                    : "bg-muted text-muted-foreground";
 
                   // Find matching agent config
                   const agentConfig = activeAgents[segment.agentIndex - 1];
-                  const modelName = segment.modelId?.trim() || agentConfig?.modelId || "Model auto-select";
-                  const systemPrompt = agentConfig?.systemPrompt?.trim() || "";
+
+                  // Use the latest system prompt from settings if available
+                  const systemPrompt =
+                    settings?.systemPrompts?.[segment.agentIndex - 1] ||
+                    agentConfig?.systemPrompt?.trim() ||
+                    "";
                   const truncatedPrompt =
                     systemPrompt.length > 220
                       ? `${systemPrompt.slice(0, 220).trim()}…`
@@ -165,10 +183,14 @@ export default function ChatMessageArea({
                       ? agentConfig.webSearch
                       : null;
 
+                  // Disable interaction when pending or running
+                  const canInteract = isComplete;
+
                   return (
                     <CustomCollapsible
                       key={`${message.id}-agent-${idx}`}
-                      defaultOpen={true}
+                      defaultOpen={isComplete}
+                      disabled={!canInteract}
                       className="rounded-2xl border border-border/70 bg-card/70 shadow-xs"
                       title={
                         <div className="flex w-full items-center gap-3 pr-2">
@@ -181,7 +203,8 @@ export default function ChatMessageArea({
                             Agent {segment.agentIndex}
                           </span>
                           <span className="text-xs truncate text-muted-foreground">
-                            {segment.provider === "vercel" ? "Vercel" : "OpenRouter"} · {modelName}
+                            {segment.provider === "vercel" ? "Vercel" : "OpenRouter"}{" "}
+                            · {segment.modelId}
                           </span>
                           <span
                             className={cn(
@@ -211,27 +234,13 @@ export default function ChatMessageArea({
                                   <span>Generating response...</span>
                                 </>
                               ) : (
-                                <span className="text-muted-foreground/60">No response received</span>
+                                <span className="text-muted-foreground/60">
+                                  No response received
+                                </span>
                               )}
                             </div>
                           )}
                         </div>
-
-                        {/* Agent Configuration */}
-                        {(webSearch || truncatedPrompt) && (
-                          <div className="pt-3 border-t border-border/40 space-y-3 text-xs leading-relaxed text-muted-foreground/90">
-                            {webSearch && (
-                              <div className="flex items-center gap-2 text-[11px]">
-                                <span className="font-semibold uppercase tracking-wider text-muted-foreground">
-                                  Web Search
-                                </span>
-                                <span className="rounded-full bg-muted/60 px-2 py-0.5 font-medium capitalize text-muted-foreground/90">
-                                  {webSearch}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     </CustomCollapsible>
                   );
@@ -287,18 +296,6 @@ export default function ChatMessageArea({
             </div>
           );
         })}
-        {isStreaming && (
-          <div className="flex gap-3 justify-start">
-            <Avatar className="size-8 shrink-0">
-              <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-                AI
-              </AvatarFallback>
-            </Avatar>
-            <div className="rounded-2xl px-4 py-3 bg-muted">
-              <Loader2 className="size-4 animate-spin text-muted-foreground" />
-            </div>
-          </div>
-        )}
       </div>
     </ScrollArea>
   );

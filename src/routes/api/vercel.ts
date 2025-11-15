@@ -6,7 +6,6 @@ import {
   jsonResponse,
   loadUserKeys,
   RequestPayload,
-  streamTextResponse,
 } from "@/lib/server/chat-route-utils";
 
 const API_ROUTE_PATH = "/api/vercel" as const;
@@ -52,7 +51,7 @@ async function callVercelGateway(
     body: JSON.stringify({
       model: modelId,
       messages,
-      stream: false,
+      stream: true,
     }),
   });
 
@@ -72,29 +71,76 @@ async function callVercelGateway(
     );
   }
 
-  const payload = (await response.json()) as {
-    choices?: Array<{
-      message?: { content?: string | Array<{ text?: string }> };
-    }>;
-  };
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
 
-  const primary = payload.choices?.[0]?.message;
-  if (!primary) {
-    throw new Error("Vercel AI Gateway returned an empty response.");
-  }
+  return new Response(
+    new ReadableStream({
+      async start(controller) {
+        const reader = response.body?.getReader();
+        if (!reader) {
+          controller.close();
+          return;
+        }
 
-  if (typeof primary.content === "string") {
-    return primary.content;
-  }
+        let buffer = "";
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-  if (Array.isArray(primary.content)) {
-    return primary.content
-      .map((segment) => segment?.text ?? "")
-      .filter(Boolean)
-      .join("\n");
-  }
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
 
-  return "";
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                const data = line.slice(6);
+                if (data === "[DONE]") continue;
+
+                try {
+                  const parsed = JSON.parse(data);
+                  const content = parsed.choices?.[0]?.delta?.content;
+                  if (content) {
+                    controller.enqueue(encoder.encode(content));
+                  }
+                } catch (e) {
+                  // Ignore parse errors
+                }
+              }
+            }
+          }
+
+          // Handle remaining buffer
+          if (buffer.startsWith("data: ")) {
+            const data = buffer.slice(6);
+            if (data !== "[DONE]") {
+              try {
+                const parsed = JSON.parse(data);
+                const content = parsed.choices?.[0]?.delta?.content;
+                if (content) {
+                  controller.enqueue(encoder.encode(content));
+                }
+              } catch (e) {
+                // Ignore
+              }
+            }
+          }
+
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+    }),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    }
+  );
 }
 
 export const Route = createFileRoute(API_ROUTE_PATH as never)({
@@ -177,15 +223,12 @@ export const Route = createFileRoute(API_ROUTE_PATH as never)({
         );
 
         try {
-          const content = await callVercelGateway(
+          const response = await callVercelGateway(
             apiKey,
             modelId,
             messages
           );
-          if (!content.trim()) {
-            throw new Error("Vercel AI Gateway returned an empty message.");
-          }
-          return streamTextResponse(content);
+          return response;
         } catch (error) {
           console.error("Vercel AI Gateway request failed", error);
           const message =

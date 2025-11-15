@@ -46,20 +46,22 @@ async function fetchOpenRouterCredits(): Promise<OpenRouterCredits | null> {
 }
 
 export function useVercelCredits(enabled: boolean) {
+  const settings = getSettings();
   return useQuery({
-    queryKey: ["vercelCredits", enabled],
+    queryKey: ["vercelCredits", settings.vercelAiGateway, enabled],
     queryFn: fetchVercelCredits,
-    enabled,
+    enabled: enabled && !!settings.vercelAiGateway,
     refetchInterval: 30000, // Refetch every 30 seconds
     staleTime: 25000,
   });
 }
 
 export function useOpenRouterCredits(enabled: boolean) {
+  const settings = getSettings();
   return useQuery({
-    queryKey: ["openRouterCredits", enabled],
+    queryKey: ["openRouterCredits", settings.openRouterKey, enabled],
     queryFn: fetchOpenRouterCredits,
-    enabled,
+    enabled: enabled && !!settings.openRouterKey,
     refetchInterval: 30000, // Refetch every 30 seconds
     staleTime: 25000,
   });

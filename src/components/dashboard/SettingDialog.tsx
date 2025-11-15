@@ -31,6 +31,8 @@ type SettingsFormValues = {
   openRouterKey: string;
   vercelAiGateway: string;
   systemPrompts: string[];
+  fullName: string;
+  email: string;
 };
 
 type UserKeysResponse = {
@@ -44,6 +46,7 @@ export default function SettingsDialog() {
   const [isLoadingKeys, setIsLoadingKeys] = useState(false);
   const [showOpenRouterKey, setShowOpenRouterKey] = useState(false);
   const [showVercelKey, setShowVercelKey] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   const initialSettings = getSettings();
   const callAuthenticatedAction = useAuthStore(
@@ -79,6 +82,8 @@ export default function SettingsDialog() {
       openRouterKey: initialSettings.openRouterKey || "",
       vercelAiGateway: initialSettings.vercelAiGateway || "",
       systemPrompts: initialSettings.systemPrompts || [],
+      fullName: "",
+      email: "",
     } as SettingsFormValues,
     onSubmit: async ({ value }) => {
       const trimmedOpenRouterKey = value.openRouterKey.trim();
@@ -130,24 +135,36 @@ export default function SettingsDialog() {
 
     let cancelled = false;
 
-    const loadKeys = async () => {
+    const loadData = async () => {
       setIsLoadingKeys(true);
       try {
-        const keys = await callAuthenticatedAction<UserKeysResponse | null>(
-          api.authActions.getUserKeys
-        );
+        const [keys, userProfile] = await Promise.all([
+          callAuthenticatedAction<UserKeysResponse | null>(
+            api.authActions.getUserKeys
+          ),
+          callAuthenticatedAction<any>(api.authActions.me)
+        ]);
+        
         if (cancelled) {
           return;
         }
 
-        form.setFieldValue("openRouterKey", keys?.openrouterKey ?? "");
-        form.setFieldValue("vercelAiGateway", keys?.vercelKey ?? "");
+        // Set user profile
+        setUser(userProfile);
+        form.setFieldValue("fullName", userProfile?.fullName || "");
+        form.setFieldValue("email", userProfile?.email || "");
+
+        // Only set keys if they exist, otherwise use empty strings for new users
+        form.setFieldValue("openRouterKey", keys?.openrouterKey || "");
+        form.setFieldValue("vercelAiGateway", keys?.vercelKey || "");
       } catch (error) {
         if (!cancelled) {
-          console.error("Failed to load stored keys", error);
-          toast.error("Could not load saved keys", {
-            description: "Please try again.",
-          });
+          console.error("Failed to load data", error);
+          // Set empty values on error (user might not have keys yet)
+          form.setFieldValue("openRouterKey", "");
+          form.setFieldValue("vercelAiGateway", "");
+          form.setFieldValue("fullName", "");
+          form.setFieldValue("email", "");
         }
       } finally {
         if (!cancelled) {
@@ -156,7 +173,7 @@ export default function SettingsDialog() {
       }
     };
 
-    void loadKeys();
+    void loadData();
 
     return () => {
       cancelled = true;
@@ -236,25 +253,55 @@ export default function SettingsDialog() {
                         placeholder="Openrouter keys goes here"
                         type={showOpenRouterKey ? "text" : "password"}
                         disabled={isLoadingKeys}
-                        className="pr-10"
+                        className="pr-20"
                       />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                        onClick={() => setShowOpenRouterKey(!showOpenRouterKey)}
-                        disabled={isLoadingKeys}
-                      >
-                        {showOpenRouterKey ? (
-                          <EyeOff className="size-4 text-muted-foreground" />
-                        ) : (
-                          <Eye className="size-4 text-muted-foreground" />
-                        )}
-                        <span className="sr-only">
-                          {showOpenRouterKey ? "Hide" : "Show"} API key
-                        </span>
-                      </Button>
+                      <div className="absolute right-0 top-0 h-full flex">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-full px-3 hover:bg-transparent"
+                          onClick={() => setShowOpenRouterKey(!showOpenRouterKey)}
+                          disabled={isLoadingKeys}
+                        >
+                          {showOpenRouterKey ? (
+                            <EyeOff className="size-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="size-4 text-muted-foreground" />
+                          )}
+                          <span className="sr-only">
+                            {showOpenRouterKey ? "Hide" : "Show"} API key
+                          </span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-full px-3 hover:bg-transparent text-destructive hover:text-destructive"
+                          onClick={async () => {
+                            field.handleChange("");
+                            try {
+                              await callAuthenticatedAction(api.authActions.upsertUserKeys, {
+                                keys: {
+                                  openrouterKey: undefined,
+                                },
+                              });
+                              toast.success("OpenRouter key deleted", {
+                                description: "Your OpenRouter API key has been removed.",
+                              });
+                            } catch (error) {
+                              console.error("Failed to delete OpenRouter key", error);
+                              toast.error("Failed to delete key", {
+                                description: "Please try again.",
+                              });
+                            }
+                          }}
+                          disabled={isLoadingKeys || !field.state.value}
+                        >
+                          <Trash2 className="size-4" />
+                          <span className="sr-only">Delete OpenRouter key</span>
+                        </Button>
+                      </div>
                     </div>
                     <p className="text-sm text-muted-foreground">
                       Optional. Your OpenRouter API key for AI models.
@@ -282,25 +329,55 @@ export default function SettingsDialog() {
                         type={showVercelKey ? "text" : "password"}
                         placeholder="Vercel AI Gateway key goes here"
                         disabled={isLoadingKeys}
-                        className="pr-10"
+                        className="pr-20"
                       />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                        onClick={() => setShowVercelKey(!showVercelKey)}
-                        disabled={isLoadingKeys}
-                      >
-                        {showVercelKey ? (
-                          <EyeOff className="size-4 text-muted-foreground" />
-                        ) : (
-                          <Eye className="size-4 text-muted-foreground" />
-                        )}
-                        <span className="sr-only">
-                          {showVercelKey ? "Hide" : "Show"} API key
-                        </span>
-                      </Button>
+                      <div className="absolute right-0 top-0 h-full flex">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-full px-3 hover:bg-transparent"
+                          onClick={() => setShowVercelKey(!showVercelKey)}
+                          disabled={isLoadingKeys}
+                        >
+                          {showVercelKey ? (
+                            <EyeOff className="size-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="size-4 text-muted-foreground" />
+                          )}
+                          <span className="sr-only">
+                            {showVercelKey ? "Hide" : "Show"} API key
+                          </span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-full px-3 hover:bg-transparent text-destructive hover:text-destructive"
+                          onClick={async () => {
+                            field.handleChange("");
+                            try {
+                              await callAuthenticatedAction(api.authActions.upsertUserKeys, {
+                                keys: {
+                                  vercelKey: undefined,
+                                },
+                              });
+                              toast.success("Vercel key deleted", {
+                                description: "Your Vercel AI Gateway key has been removed.",
+                              });
+                            } catch (error) {
+                              console.error("Failed to delete Vercel key", error);
+                              toast.error("Failed to delete key", {
+                                description: "Please try again.",
+                              });
+                            }
+                          }}
+                          disabled={isLoadingKeys || !field.state.value}
+                        >
+                          <Trash2 className="size-4" />
+                          <span className="sr-only">Delete Vercel key</span>
+                        </Button>
+                      </div>
                     </div>
                     <p className="text-sm text-muted-foreground">
                       Optional. Your Vercel AI Gateway endpoint.

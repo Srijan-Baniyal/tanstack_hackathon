@@ -1,6 +1,6 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from "react";
 import { useForm } from "@tanstack/react-form";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import {
   Card,
@@ -23,6 +23,12 @@ import {
 import { toast } from "sonner";
 import { Github } from "lucide-react";
 import { useAuthStore } from "@/zustand/AuthStore";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type OAuthProvider = "google" | "github";
 
@@ -217,7 +223,37 @@ export function SignInAndSignUp() {
 
   return (
     <>
-      <Card className="w-full max-w-md">
+      {/* Static grid background - horizontal lines */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        {Array.from({ length: 30 }).map((_, i) => (
+          <div
+            key={`h-${i}`}
+            className="absolute h-px bg-border opacity-40"
+            style={{
+              top: `${i * 40}px`,
+              left: 0,
+              right: 0,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Static grid background - vertical lines */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        {Array.from({ length: 50 }).map((_, i) => (
+          <div
+            key={`v-${i}`}
+            className="absolute w-px bg-border opacity-40"
+            style={{
+              left: `${i * 40}px`,
+              top: 0,
+              bottom: 0,
+            }}
+          />
+        ))}
+      </div>
+
+      <Card className="w-full max-w-md relative z-10">
         <CardHeader>
           <CardTitle>Welcome to MeshMind</CardTitle>
           <CardDescription>
@@ -476,9 +512,18 @@ export function SignInAndSignUp() {
 
                 <p className="text-center text-sm text-muted-foreground">
                   By signing up, you agree to our{" "}
-                  <Link to="/" className="underline hover:text-foreground">
-                    Terms of Service
-                  </Link>
+                  <TooltipProvider>
+                    <Tooltip delayDuration={200}>
+                      <TooltipTrigger asChild>
+                        <span className="underline decoration-dotted cursor-help hover:text-foreground transition-colors">
+                          Terms of Service
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="bg-popover text-popover-foreground border shadow-md">
+                        <p className="text-sm">It's open source. No terms and conditions. 🎉</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </p>
               </form>
             </TabsContent>

@@ -519,6 +519,17 @@ export const useAuthStore = create<AuthState>()((set, get) => {
       );
       await callWithAccessToken(deleteRef);
       clearPersistedState();
+      
+      // Clear all cached data including OAuth sessions and any stored keys
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.clear();
+          window.sessionStorage.clear();
+        } catch {
+          // Ignore storage errors
+        }
+      }
+      
       set({ user: null, tokens: null, isLoading: false });
     },
   };

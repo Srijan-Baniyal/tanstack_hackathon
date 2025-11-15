@@ -69,34 +69,34 @@ export default function HeroSection() {
 
         {/* Headline */}
         <h1 className="mb-6 text-balance font-sans text-5xl font-semibold tracking-tight text-foreground lg:text-7xl">
-          MeshMind — One Question.{" "}
-          <span className="text-muted-foreground">Many Minds.</span>
+          MeshMind — Orchestrate Multiple{" "}
+          <span className="text-muted-foreground">AI Models.</span>
         </h1>
 
         {/* Sub-headline */}
         <p className="mx-auto mb-12 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground lg:text-xl">
-          A multi-model research orchestrator that queries multiple LLMs in
-          parallel and synthesizes their reasoning into one collective
-          consensus.
+          Configure up to 10 AI agents with custom system prompts, stream
+          responses in real-time, and compare different models side-by-side in
+          a beautiful segmented interface.
         </p>
 
         {/* Feature bullets */}
         <div className="mb-12 flex flex-wrap items-center justify-center gap-6 text-sm text-foreground lg:gap-8 lg:text-base">
           <div className="flex items-center gap-2">
             <div className="h-1.5 w-1.5 rounded-full bg-foreground" />
-            <span>No single-model bias</span>
+            <span>Multi-agent streaming</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-1.5 w-1.5 rounded-full bg-foreground" />
-            <span>Automatic multi-AI comparison</span>
+            <span>Custom system prompts</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-1.5 w-1.5 rounded-full bg-foreground" />
-            <span>RPC-powered orchestration</span>
+            <span>Model comparison</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-1.5 w-1.5 rounded-full bg-foreground" />
-            <span>Consensus reasoning in one click</span>
+            <span>OAuth & secure auth</span>
           </div>
         </div>
 
@@ -113,10 +113,9 @@ export default function HeroSection() {
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </Button>
         </div>
-
         {/* Subtle hint text */}
         <p className="mt-12 text-xs text-muted-foreground">
-          GPT · Claude · Gemini · GLM
+          Powered by OpenRouter · Vercel AI · Convex · TanStack Start · FireCrawl · Cloudflare
         </p>
       </div>
     </div>

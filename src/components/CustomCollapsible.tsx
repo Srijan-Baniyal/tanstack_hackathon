@@ -19,6 +19,7 @@ interface CustomCollapsibleProps {
   title: ReactNode;
   children?: ReactNode;
   defaultOpen?: boolean;
+  disabled?: boolean;
   className?: string;
   items?: CustomCollapsibleItem[];
 }
@@ -35,6 +36,7 @@ export default function CustomCollapsible({
   title,
   children,
   defaultOpen = false,
+  disabled = false,
   className,
   items,
 }: CustomCollapsibleProps) {
@@ -52,8 +54,12 @@ export default function CustomCollapsible({
   return (
     <div className={cn("group", className)}>
       <Button
-        onClick={() => setIsOpen((prev) => !prev)}
-        className="w-full py-4 sm:py-5 md:py-6 lg:py-7 flex bg-transparent hover:bg-accent-foreground/10 items-center gap-3 sm:gap-4 md:gap-6 lg:gap-8 group transition-all duration-500 ease-out hover:pl-1 sm:hover:pl-1.5 md:hover:pl-2"
+        onClick={() => !disabled && setIsOpen((prev) => !prev)}
+        disabled={disabled}
+        className={cn(
+          "w-full py-4 sm:py-5 md:py-6 lg:py-7 flex bg-transparent hover:bg-accent-foreground/10 items-center gap-3 sm:gap-4 md:gap-6 lg:gap-8 group transition-all duration-500 ease-out hover:pl-1 sm:hover:pl-1.5 md:hover:pl-2",
+          disabled && "opacity-50 cursor-not-allowed hover:bg-transparent hover:pl-0"
+        )}
       >
         <span className="text-sm sm:text-base md:text-lg font-light tracking-wide sm:tracking-wider text-foreground whitespace-nowrap transition-all duration-500 group-hover:tracking-wider sm:group-hover:tracking-widest">
           {title}

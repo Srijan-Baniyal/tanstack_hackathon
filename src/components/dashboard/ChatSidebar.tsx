@@ -276,6 +276,17 @@ export default function ChatSidebar({
   const handleSignOut = () => {
     setAdvancedDialogOpen(false);
     setAccountDeleteDialogOpen(false);
+    
+    // Clear all cached data including API keys
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.clear();
+        window.sessionStorage.clear();
+      } catch {
+        // Ignore storage errors
+      }
+    }
+    
     signOut();
     resetChats();
     toast.info("Signed out", {
@@ -546,6 +557,20 @@ export default function ChatSidebar({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-8 py-2">
+            {user && user.providerType && (
+              <section className="space-y-3 rounded-xl border bg-muted/30 p-4">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold">Sign-in method</h3>
+                  <p className="text-xs text-muted-foreground">
+                    You signed in using{" "}
+                    <span className="font-semibold capitalize">
+                      {user.providerType}
+                    </span>
+                  </p>
+                </div>
+              </section>
+            )}
+
             <section className="space-y-4">
               <div>
                 <h3 className="text-sm font-semibold">Profile</h3>
@@ -582,7 +607,14 @@ export default function ChatSidebar({
                 <profileForm.Field name="email">
                   {(field) => (
                     <div className="space-y-2">
-                      <Label htmlFor="profile-email">Email address</Label>
+                      <Label htmlFor="profile-email">
+                        Email address
+                        {user?.providerType && (
+                          <span className="ml-2 text-xs text-muted-foreground font-normal">
+                            (managed by {user.providerType})
+                          </span>
+                        )}
+                      </Label>
                       <Input
                         id="profile-email"
                         type="email"
@@ -592,7 +624,14 @@ export default function ChatSidebar({
                         }
                         placeholder="name@example.com"
                         autoComplete="off"
+                        disabled={!!user?.providerType}
+                        className={user?.providerType ? "opacity-50 cursor-not-allowed" : ""}
                       />
+                      {user?.providerType && (
+                        <p className="text-xs text-muted-foreground">
+                          Email is managed by your {user.providerType} account and cannot be changed here.
+                        </p>
+                      )}
                     </div>
                   )}
                 </profileForm.Field>
@@ -611,91 +650,95 @@ export default function ChatSidebar({
               </form>
             </section>
 
-            <section className="space-y-4">
-              <div>
-                <h3 className="text-sm font-semibold">Password</h3>
-                <p className="text-xs text-muted-foreground">
-                  Choose a strong password that you have not used elsewhere.
-                </p>
-              </div>
-              <form
-                className="space-y-3"
-                autoComplete="off"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  passwordForm.handleSubmit();
-                }}
-              >
-                <passwordForm.Field name="currentPassword">
-                  {(field) => (
-                    <div className="space-y-2">
-                      <Label htmlFor="current-password">Current password</Label>
-                      <Input
-                        id="current-password"
-                        type="password"
-                        value={field.state.value}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        placeholder="••••••••"
-                        autoComplete="off"
-                      />
-                    </div>
-                  )}
-                </passwordForm.Field>
-
-                <passwordForm.Field name="newPassword">
-                  {(field) => (
-                    <div className="space-y-2">
-                      <Label htmlFor="new-password">New password</Label>
-                      <Input
-                        id="new-password"
-                        type="password"
-                        value={field.state.value}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        placeholder="At least 8 characters"
-                        autoComplete="new-password"
-                      />
-                    </div>
-                  )}
-                </passwordForm.Field>
-
-                <passwordForm.Field name="confirmPassword">
-                  {(field) => (
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm-password">
-                        Confirm new password
-                      </Label>
-                      <Input
-                        id="confirm-password"
-                        type="password"
-                        value={field.state.value}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        placeholder="Repeat your new password"
-                        autoComplete="new-password"
-                      />
-                    </div>
-                  )}
-                </passwordForm.Field>
-
-                <DialogFooter className="px-0">
-                  <Button
-                    type="submit"
-                    disabled={passwordForm.state.isSubmitting}
-                  >
-                    {passwordForm.state.isSubmitting && (
-                      <Loader2 className="mr-2 size-4 animate-spin" />
+            {user && !user.providerType && (
+              <section className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold">Password</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Choose a strong password that you have not used elsewhere.
+                  </p>
+                </div>
+                <form
+                  className="space-y-3"
+                  autoComplete="off"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    passwordForm.handleSubmit();
+                  }}
+                >
+                  <passwordForm.Field name="currentPassword">
+                    {(field) => (
+                      <div className="space-y-2">
+                        <Label htmlFor="current-password">
+                          Current password
+                        </Label>
+                        <Input
+                          id="current-password"
+                          type="password"
+                          value={field.state.value}
+                          onChange={(event) =>
+                            field.handleChange(event.target.value)
+                          }
+                          placeholder="••••••••"
+                          autoComplete="off"
+                        />
+                      </div>
                     )}
-                    Update password
-                  </Button>
-                </DialogFooter>
-              </form>
-            </section>
+                  </passwordForm.Field>
+
+                  <passwordForm.Field name="newPassword">
+                    {(field) => (
+                      <div className="space-y-2">
+                        <Label htmlFor="new-password">New password</Label>
+                        <Input
+                          id="new-password"
+                          type="password"
+                          value={field.state.value}
+                          onChange={(event) =>
+                            field.handleChange(event.target.value)
+                          }
+                          placeholder="At least 8 characters"
+                          autoComplete="new-password"
+                        />
+                      </div>
+                    )}
+                  </passwordForm.Field>
+
+                  <passwordForm.Field name="confirmPassword">
+                    {(field) => (
+                      <div className="space-y-2">
+                        <Label htmlFor="confirm-password">
+                          Confirm new password
+                        </Label>
+                        <Input
+                          id="confirm-password"
+                          type="password"
+                          value={field.state.value}
+                          onChange={(event) =>
+                            field.handleChange(event.target.value)
+                          }
+                          placeholder="Repeat your new password"
+                          autoComplete="new-password"
+                        />
+                      </div>
+                    )}
+                  </passwordForm.Field>
+
+                  <DialogFooter className="px-0">
+                    <Button
+                      type="submit"
+                      disabled={passwordForm.state.isSubmitting}
+                    >
+                      {passwordForm.state.isSubmitting && (
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                      )}
+                      Update password
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </section>
+            )}
 
             <section className="space-y-3 rounded-xl border p-4">
               <div className="space-y-1">
