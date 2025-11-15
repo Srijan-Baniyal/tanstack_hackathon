@@ -33,15 +33,20 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
+        env:
+          VITE_CONVEX_URL: ${{ secrets.VITE_CONVEX_URL }}
         run: pnpm build
 
       - name: Prepare static site
         run: |
-          cd dist/client
+          # Move client assets to root for proper path resolution
+          mkdir -p dist_deploy
+          cp -r dist/client/assets dist_deploy/
           
-          # Find all CSS and JS entry files
-          echo "Available assets:"
-          ls -lh assets/ | head -20
+          echo "Looking for entry points in dist_deploy/assets:"
+          ls -lh dist_deploy/assets/ | grep -E "(index|main).*\.(js|css)" || echo "No entry files found"
+          
+          cd dist_deploy
           
           # Look for entry point files - prioritize index over main
           INDEX_JS=$(ls assets/index-*.js 2>/dev/null | head -n 1)
@@ -56,6 +61,7 @@ jobs:
           ENTRY_CSS="${INDEX_CSS:-${STYLES_CSS:-${DASHBOARD_CSS}}}"
           
           echo "Using:"
+          echo "  JS: $ENTRY_JS"
           echo "  CSS: $ENTRY_CSS"
           
           # Create index.html
@@ -77,14 +83,14 @@ jobs:
           
           # Add CSS if found
           if [ -n "$ENTRY_CSS" ]; then
-            sed -i "s|__CSS_LINK__|<link rel=\"stylesheet\" href=\"$ENTRY_CSS\">|" index.html
+            sed -i "s|__CSS_LINK__|<link rel=\"stylesheet\" crossorigin href=\"/$ENTRY_CSS\">|" index.html
           else
             sed -i "s|__CSS_LINK__||" index.html
           fi
           
           # Add JS if found
           if [ -n "$ENTRY_JS" ]; then
-            sed -i "s|__JS_SCRIPT__|<script type=\"module\" src=\"$ENTRY_JS\"></script>|" index.html
+            sed -i "s|__JS_SCRIPT__|<script type=\"module\" crossorigin src=\"/$ENTRY_JS\"></script>|" index.html
           else
             sed -i "s|__JS_SCRIPT__||" index.html
           fi
@@ -96,12 +102,11 @@ jobs:
           echo "Content:"
           cat index.html
           
-          cd ../..
-
+          cd ..
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist/client
+          path: dist_deploy
 
   deploy:
     environment:
