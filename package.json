@@ -7,7 +7,7 @@
     "build": "vite build",
     "serve": "vite preview",
     "test": "vitest run",
-    "deploy": "CLOUDFLARE=true pnpm run build && npx wrangler deploy"
+    "deploy": "CLOUDFLARE=true pnpm run build && npx wrangler deploy --bundle false"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^2.0.8",
