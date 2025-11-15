@@ -1,14 +1,13 @@
 name = "tanstack"
 main = "dist/server/server.js"
 
-[assets]
-directory = "dist/client"
-binding = "ASSETS"  # optional but recommended
-
 compatibility_date = "2025-11-15"
 compatibility_flags = ["nodejs_compat"]
-
 workers_dev = true
+
+[assets]
+directory = "dist/client"
+binding = "ASSETS"
 
 [observability]
 enabled = true
