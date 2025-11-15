@@ -83,14 +83,14 @@ jobs:
           
           # Add CSS if found
           if [ -n "$ENTRY_CSS" ]; then
-            sed -i "s|__CSS_LINK__|<link rel=\"stylesheet\" crossorigin href=\"/$ENTRY_CSS\">|" index.html
+            sed -i "s|__CSS_LINK__|<link rel=\"stylesheet\" crossorigin href=\"$ENTRY_CSS\">|" index.html
           else
             sed -i "s|__CSS_LINK__||" index.html
           fi
           
           # Add JS if found
           if [ -n "$ENTRY_JS" ]; then
-            sed -i "s|__JS_SCRIPT__|<script type=\"module\" crossorigin src=\"/$ENTRY_JS\"></script>|" index.html
+            sed -i "s|__JS_SCRIPT__|<script type=\"module\" crossorigin src=\"$ENTRY_JS\"></script>|" index.html
           else
             sed -i "s|__JS_SCRIPT__||" index.html
           fi
