@@ -35,27 +35,10 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Debug build output
-        run: |
-          echo "Contents of dist:"
-          ls -la dist/
-          echo "Checking for index.html:"
-          [ -f dist/index.html ] && echo "✓ dist/index.html exists" || echo "✗ dist/index.html missing"
-
-      - name: Add SPA fallback (404.html)
-        run: |
-          if [ -f dist/index.html ]; then
-            cp dist/index.html dist/404.html
-            echo "✓ Created dist/404.html"
-          else
-            echo "✗ Cannot create 404.html - index.html not found"
-            exit 1
-          fi
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: dist/client
 
   deploy:
     environment:
