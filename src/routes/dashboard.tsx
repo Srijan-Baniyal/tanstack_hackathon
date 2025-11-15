@@ -19,17 +19,6 @@ export const Route = createFileRoute("/dashboard")({
       throw redirect({ to: "/signinandsignup" });
     }
   },
-  head: () => ({
-    meta: [
-      {
-        title: "Dashboard - MeshMind",
-      },
-      {
-        name: "description",
-        content: "Manage your AI agents, configure models, and orchestrate multiple AI conversations in your MeshMind dashboard.",
-      },
-    ],
-  }),
   component: Dashboard,
 });
 
