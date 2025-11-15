@@ -1,4 +1,4 @@
-# Multi-stage build: build Vite app with pnpm, then serve static files with nginx
+# Build stage: install dependencies and build the app
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -15,17 +15,38 @@ RUN pnpm install --frozen-lockfile
 # Copy the rest of the source code
 COPY . .
 
-# Build the app to the dist directory
+# Build argument for Convex URL
+ARG VITE_CONVEX_URL
+ENV VITE_CONVEX_URL=$VITE_CONVEX_URL
+
+# Build the app
 RUN pnpm build
 
 # --- Runtime image ---
-FROM nginx:alpine AS runner
+FROM node:20-alpine AS runner
 
-# Copy built assets from the builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+WORKDIR /app
+
+# Install pnpm via corepack
+RUN corepack enable
+
+# Copy package files
+COPY package.json pnpm-lock.yaml ./
+
+# Install only production dependencies
+RUN pnpm install --prod --frozen-lockfile
+
+# Copy built assets from builder
+COPY --from=builder /app/dist ./dist
+
+# Copy other necessary files
+COPY --from=builder /app/convex.json ./convex.json
 
 # Expose HTTP port
 EXPOSE 80
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Set the port environment variable
+ENV PORT=80
+
+# Start the server
+CMD ["node", "dist/server/server.js"]

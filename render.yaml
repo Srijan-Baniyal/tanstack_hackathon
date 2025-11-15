@@ -5,6 +5,9 @@ services:
     dockerfilePath: ./Dockerfile
     region: oregon
     plan: free
+    dockerBuildArgs:
+      - key: VITE_CONVEX_URL
+        sync: false
     envVars:
       - key: VITE_CONVEX_URL
         sync: false
