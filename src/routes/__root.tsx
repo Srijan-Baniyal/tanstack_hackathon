@@ -20,13 +20,81 @@ export const Route = createRootRoute({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "TanStack Start Starter",
+        title: "MeshMind - AI Orchestration Platform",
+      },
+      {
+        name: "description",
+        content: "Orchestrate multiple AI models simultaneously to compare responses, see what's better, save time, and explore more models for clearer, more reliable answers.",
+      },
+      // Open Graph
+      {
+        property: "og:title",
+        content: "MeshMind - AI Orchestration Platform",
+      },
+      {
+        property: "og:description",
+        content: "Orchestrate multiple AI models simultaneously to compare responses, see what's better, save time, and explore more models for clearer, more reliable answers.",
+      },
+      {
+        property: "og:type",
+        content: "website",
+      },
+      {
+        property: "og:url",
+        content: "https://your-domain.com", // Replace with your actual domain
+      },
+      {
+        property: "og:image",
+        content: "/og_image.png",
+      },
+      // Twitter Card
+      {
+        name: "twitter:card",
+        content: "summary_large_image",
+      },
+      {
+        name: "twitter:title",
+        content: "MeshMind - AI Orchestration Platform",
+      },
+      {
+        name: "twitter:description",
+        content: "Orchestrate multiple AI models simultaneously to compare responses, see what's better, save time, and explore more models for clearer, more reliable answers.",
+      },
+      {
+        name: "twitter:image",
+        content: "/og_image.png",
       },
     ],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
+      },
+      // Favicon
+      {
+        rel: "icon",
+        type: "image/x-icon",
+        href: "/favicon/favicon.ico",
+      },
+      {
+        rel: "icon",
+        type: "image/svg+xml",
+        href: "/favicon/favicon.svg",
+      },
+      {
+        rel: "icon",
+        type: "image/png",
+        sizes: "96x96",
+        href: "/favicon/favicon-96x96.png",
+      },
+      {
+        rel: "apple-touch-icon",
+        sizes: "180x180",
+        href: "/favicon/apple-touch-icon.png",
+      },
+      {
+        rel: "manifest",
+        href: "/favicon/site.webmanifest",
       },
     ],
   }),

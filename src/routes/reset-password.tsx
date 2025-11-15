@@ -19,6 +19,17 @@ import { useAuthStore } from "@/zustand/AuthStore";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/reset-password")({
+  head: () => ({
+    meta: [
+      {
+        title: "Reset Password - MeshMind",
+      },
+      {
+        name: "description",
+        content: "Reset your MeshMind account password securely.",
+      },
+    ],
+  }),
   component: ResetPasswordPage,
 });
 

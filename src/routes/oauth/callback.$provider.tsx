@@ -19,6 +19,13 @@ export const Route = createFileRoute("/oauth/callback/$provider")({
         ? search.error_description
         : undefined,
   }),
+  head: () => ({
+    meta: [
+      {
+        title: "OAuth Callback - MeshMind",
+      },
+    ],
+  }),
   component: OAuthCallbackPage,
 });
 
