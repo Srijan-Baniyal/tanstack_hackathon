@@ -35,14 +35,26 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Debug build output
+        run: |
+          echo "=== Workspace root ==="
+          ls -la
+          echo ""
+          echo "=== dist folder ==="
+          ls -la dist/ || echo "dist/ does not exist"
+          echo ""
+          echo "=== dist contents (recursive) ==="
+          find dist -type f 2>/dev/null || echo "No files in dist"
+
       - name: Prepare static site
         run: |
           # Copy index.html to 404.html for SPA routing
-          cp dist/index.html dist/404.html
-          echo "✓ Created 404.html fallback"
-          # Show what we're deploying
-          echo "Deploying:"
-          ls -la dist/
+          if [ -f dist/index.html ]; then
+            cp dist/index.html dist/404.html
+            echo "✓ Created 404.html fallback"
+          else
+            echo "✗ dist/index.html not found, skipping 404.html creation"
+          fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
