@@ -3,3 +3,5 @@
   compatibility_flags = ["nodejs_compat"]
   [observability]
   enabled = true
+  [assets]
+  directory = "./dist/client"
