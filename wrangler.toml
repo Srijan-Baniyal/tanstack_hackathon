@@ -1,0 +1,8 @@
+name = "tanstack-start-app"
+main = "./dist/server/worker.mjs"
+assets = { directory = "./dist/client" }
+compatibility_date = "2024-11-15"
+workers_dev = true
+
+# Needed for many Node APIs used by frameworks
+compatibility_flags = ["nodejs_compat"]

@@ -22,4 +22,7 @@ export default defineConfig({
     tanstackStart(),
     viteReact(),
   ],
+  build:{
+    ssr:true,
+  }
 })
