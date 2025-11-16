@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /signinandsignup
+Disallow: /reset-password
+Disallow: /oauth/
+
+Sitemap: https://meshmind.app/sitemap.xml

@@ -10,6 +10,21 @@ import { useChatStore } from "../zustand/ChatStore";
 import { useAuthStore } from "../zustand/AuthStore";
 
 export const Route = createFileRoute("/dashboard")({
+  head: () => ({
+    meta: [
+      {
+        title: "Dashboard - MeshMind",
+      },
+      {
+        name: "description",
+        content: "Access your MeshMind dashboard to manage chats, integrate AI models, and collaborate on projects.",
+      },
+      {
+        name: "robots",
+        content: "noindex, nofollow", // Since it's protected
+      },
+    ],
+  }),
   beforeLoad: async () => {
     if (typeof window === "undefined") return;
     const authState = useAuthStore.getState();

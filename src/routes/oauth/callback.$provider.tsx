@@ -10,6 +10,17 @@ type OAuthProvider = "google" | "github";
 const SUPPORTED_PROVIDERS: OAuthProvider[] = ["google", "github"];
 
 export const Route = createFileRoute("/oauth/callback/$provider")({
+  head: () => ({
+    meta: [
+      {
+        title: "OAuth Callback - MeshMind",
+      },
+      {
+        name: "robots",
+        content: "noindex, nofollow",
+      },
+    ],
+  }),
   validateSearch: (search: Record<string, unknown>) => ({
     code: typeof search.code === "string" ? search.code : undefined,
     state: typeof search.state === "string" ? search.state : undefined,

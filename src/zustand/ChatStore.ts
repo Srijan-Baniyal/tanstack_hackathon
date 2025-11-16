@@ -309,6 +309,9 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
     set({ activeAgents });
 
     const authState = useAuthStore.getState();
+    
+    // Proactively ensure we have a valid token before sending
+    await authState.initialize();
     let accessToken = await authState.getValidAccessToken();
     if (!accessToken) {
       toast.error("Sign in to send messages.");
@@ -443,14 +446,23 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
 
       // If we get a 401, try refreshing the token and retrying once
       if (response.status === 401) {
+        console.log("Received 401, attempting token refresh...");
         try {
+          // Try to refresh the session
           await authState.refresh();
+          
+          // Get the new access token
           accessToken = await authState.getValidAccessToken();
           
           if (!accessToken) {
+            console.error("Token refresh succeeded but no access token available");
+            authState.signOut();
             throw new Error("Session expired. Please sign in again.");
           }
 
+          console.log("Token refresh successful, retrying request...");
+          
+          // Retry the request with the new token
           response = await fetch(endpoint, {
             method: "POST",
             headers: {
@@ -463,8 +475,16 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
               currentMessage: trimmedMessage,
             }),
           });
+          
+          // If still unauthorized after refresh, sign out
+          if (response.status === 401) {
+            console.error("Still unauthorized after token refresh");
+            authState.signOut();
+            throw new Error("Session expired. Please sign in again.");
+          }
         } catch (refreshError) {
           console.error("Token refresh failed during message send", refreshError);
+          authState.signOut();
           throw new Error("Session expired. Please sign in again.");
         }
       }

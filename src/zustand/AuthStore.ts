@@ -304,9 +304,16 @@ export const useAuthStore = create<AuthState>()((set, get) => {
     isLoading: true,
 
     initialize: async () => {
-      if (get().user || get().tokens) {
-        set({ isLoading: false });
-        return;
+      // If already initialized and tokens are valid, skip re-initialization
+      const state = get();
+      if (state.user && state.tokens && !state.isLoading) {
+        // Check if tokens need refresh
+        const expiry = decodeJwtExpiry(state.tokens.accessToken);
+        if (expiry && expiry - Date.now() > REFRESH_THRESHOLD_MS) {
+          // Tokens are still valid, no need to re-initialize
+          return;
+        }
+        // Tokens are about to expire or expired, continue with refresh
       }
 
       set({ isLoading: true });
