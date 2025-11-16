@@ -309,7 +309,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
     set({ activeAgents });
 
     const authState = useAuthStore.getState();
-    const accessToken = await authState.getValidAccessToken();
+    let accessToken = await authState.getValidAccessToken();
     if (!accessToken) {
       toast.error("Sign in to send messages.");
       return;
@@ -428,7 +428,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
 
       const endpoint = resolveAiEndpoint(activeAgents);
 
-      const response = await fetch(endpoint, {
+      let response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -440,6 +440,34 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
           currentMessage: trimmedMessage, // Include the current message to ensure it's in context
         }),
       });
+
+      // If we get a 401, try refreshing the token and retrying once
+      if (response.status === 401) {
+        try {
+          await authState.refresh();
+          accessToken = await authState.getValidAccessToken();
+          
+          if (!accessToken) {
+            throw new Error("Session expired. Please sign in again.");
+          }
+
+          response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              chatId,
+              agents: activeAgents,
+              currentMessage: trimmedMessage,
+            }),
+          });
+        } catch (refreshError) {
+          console.error("Token refresh failed during message send", refreshError);
+          throw new Error("Session expired. Please sign in again.");
+        }
+      }
 
       if (!response.ok || !response.body) {
         const contentType = response.headers.get("content-type") ?? "";
