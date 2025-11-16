@@ -7,4 +7,15 @@ export default defineConfig({
     tanstackStart(),
     netlify(),
   ],
+  ssr: {
+    noExternal: ['streamdown', 'katex'],
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Ensure CSS is handled during build
+        assetFileNames: 'assets/[name]-[hash][extname]'
+      }
+    }
+  }
 })
