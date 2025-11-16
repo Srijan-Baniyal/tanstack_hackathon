@@ -45,7 +45,7 @@ export default function SettingsDialog() {
   const [newPrompt, setNewPrompt] = useState("");
   const [isLoadingKeys, setIsLoadingKeys] = useState(false);
   const [showOpenRouterKey, setShowOpenRouterKey] = useState(false);
-  const [showVercelKey, setShowVercelKey] = useState(false); 
+  const [showVercelKey, setShowVercelKey] = useState(false);
 
   const initialSettings = getSettings();
   const callAuthenticatedAction = useAuthStore(
@@ -80,7 +80,7 @@ export default function SettingsDialog() {
     defaultValues: {
       openRouterKey: initialSettings.openRouterKey || "",
       vercelAiGateway: initialSettings.vercelAiGateway || "",
-      systemPrompts: initialSettings.systemPrompts || [],
+      systemPrompts: [], // Start empty; load from DB in useEffect
       fullName: "",
       email: "",
     } as SettingsFormValues,
@@ -102,20 +102,26 @@ export default function SettingsDialog() {
           },
         });
 
+        // Save system prompts to DB (new)
+        await callAuthenticatedAction(api.authActions.upsertSystemPrompts, {
+          prompts: value.systemPrompts,
+        });
+
+        // Save to localStorage (keep for keys, as credits hooks use it; prompts now DB-only)
         const sanitized = saveSettings({
           openRouterKey: trimmedOpenRouterKey,
           vercelAiGateway: trimmedVercelGateway,
-          systemPrompts: value.systemPrompts,
+          systemPrompts: [], // No longer saving prompts to localStorage
         } as Settings);
 
         if (sanitized) {
           form.setFieldValue("openRouterKey", sanitized.openRouterKey);
           form.setFieldValue("vercelAiGateway", sanitized.vercelAiGateway);
-          form.setFieldValue("systemPrompts", sanitized.systemPrompts);
+          // Do not set systemPrompts from localStorage; rely on DB
         }
 
         toast.success("Settings saved", {
-          description: "Your API keys are stored securely.",
+          description: "Your API keys and prompts are stored securely.",
         });
         setOpen(false);
       } catch (error) {
@@ -137,13 +143,14 @@ export default function SettingsDialog() {
     const loadData = async () => {
       setIsLoadingKeys(true);
       try {
-        const [keys, userProfile] = await Promise.all([
+        const [keys, userProfile, systemPrompts] = await Promise.all([
           callAuthenticatedAction<UserKeysResponse | null>(
             api.authActions.getUserKeys
           ),
-          callAuthenticatedAction<any>(api.authActions.me)
+          callAuthenticatedAction<any>(api.authActions.me),
+          callAuthenticatedAction<string[]>(api.authActions.getSystemPrompts), // Load prompts from DB
         ]);
-        
+
         if (cancelled) {
           return;
         }
@@ -158,11 +165,14 @@ export default function SettingsDialog() {
         form.setFieldValue("openRouterKey", openRouterKey);
         form.setFieldValue("vercelAiGateway", vercelKey);
 
+        // Set system prompts from DB
+        form.setFieldValue("systemPrompts", systemPrompts || []);
+
         // Update localStorage to ensure credits hooks can access the keys
         saveSettings({
           openRouterKey,
           vercelAiGateway: vercelKey,
-          systemPrompts: initialSettings.systemPrompts || [],
+          systemPrompts: [], // Keep empty; DB is source of truth
         });
       } catch (error) {
         if (!cancelled) {
@@ -172,6 +182,7 @@ export default function SettingsDialog() {
           form.setFieldValue("vercelAiGateway", "");
           form.setFieldValue("fullName", "");
           form.setFieldValue("email", "");
+          form.setFieldValue("systemPrompts", []);
         }
       } finally {
         if (!cancelled) {
@@ -268,7 +279,9 @@ export default function SettingsDialog() {
                           variant="ghost"
                           size="icon"
                           className="h-full px-3 hover:bg-transparent"
-                          onClick={() => setShowOpenRouterKey(!showOpenRouterKey)}
+                          onClick={() =>
+                            setShowOpenRouterKey(!showOpenRouterKey)
+                          }
                           disabled={isLoadingKeys}
                         >
                           {showOpenRouterKey ? (
@@ -288,16 +301,23 @@ export default function SettingsDialog() {
                           onClick={async () => {
                             field.handleChange("");
                             try {
-                              await callAuthenticatedAction(api.authActions.upsertUserKeys, {
-                                keys: {
-                                  openrouterKey: undefined,
-                                },
-                              });
+                              await callAuthenticatedAction(
+                                api.authActions.upsertUserKeys,
+                                {
+                                  keys: {
+                                    openrouterKey: undefined,
+                                  },
+                                }
+                              );
                               toast.success("OpenRouter key deleted", {
-                                description: "Your OpenRouter API key has been removed.",
+                                description:
+                                  "Your OpenRouter API key has been removed.",
                               });
                             } catch (error) {
-                              console.error("Failed to delete OpenRouter key", error);
+                              console.error(
+                                "Failed to delete OpenRouter key",
+                                error
+                              );
                               toast.error("Failed to delete key", {
                                 description: "Please try again.",
                               });
@@ -364,16 +384,23 @@ export default function SettingsDialog() {
                           onClick={async () => {
                             field.handleChange("");
                             try {
-                              await callAuthenticatedAction(api.authActions.upsertUserKeys, {
-                                keys: {
-                                  vercelKey: undefined,
-                                },
-                              });
+                              await callAuthenticatedAction(
+                                api.authActions.upsertUserKeys,
+                                {
+                                  keys: {
+                                    vercelKey: undefined,
+                                  },
+                                }
+                              );
                               toast.success("Vercel key deleted", {
-                                description: "Your Vercel AI Gateway key has been removed.",
+                                description:
+                                  "Your Vercel AI Gateway key has been removed.",
                               });
                             } catch (error) {
-                              console.error("Failed to delete Vercel key", error);
+                              console.error(
+                                "Failed to delete Vercel key",
+                                error
+                              );
                               toast.error("Failed to delete key", {
                                 description: "Please try again.",
                               });

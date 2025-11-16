@@ -956,3 +956,48 @@ export const getUserKeys: PublicAction = action({
     }
   },
 });
+
+export const getSystemPrompts: PublicAction = action({
+  args: {
+    accessToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const payload = verifyAccessToken(args.accessToken);
+      const prompts = await ctx.runQuery(internal.auth.internalGetSystemPrompts, {
+        userId: payload.userId as Id<"users">,
+      });
+      return prompts;
+    } catch (error: any) {
+      if (error.name === "TokenExpiredError") {
+        throw new ConvexError(
+          "Access token expired. Please refresh your session."
+        );
+      }
+      throw error;
+    }
+  },
+});
+
+export const upsertSystemPrompts: PublicAction = action({
+  args: {
+    accessToken: v.string(),
+    prompts: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const payload = verifyAccessToken(args.accessToken);
+      await ctx.runMutation(internal.auth.internalUpdateSystemPrompts, {
+        userId: payload.userId as Id<"users">,
+        systemPrompts: args.prompts,
+      });
+    } catch (error: any) {
+      if (error.name === "TokenExpiredError") {
+        throw new ConvexError(
+          "Access token expired. Please refresh your session."
+        );
+      }
+      throw error;
+    }
+  },
+});

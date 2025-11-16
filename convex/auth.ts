@@ -366,3 +366,24 @@ export const internalDeleteUserCascade = internalMutation({
     await ctx.db.delete(args.userId);
   },
 });
+
+export const internalGetSystemPrompts = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    return user?.systemPrompts ?? [];
+  },
+});
+
+export const internalUpdateSystemPrompts = internalMutation({
+  args: {
+    userId: v.id("users"),
+    systemPrompts: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      systemPrompts: args.systemPrompts,
+      updatedAt: Date.now(),
+    });
+  },
+});

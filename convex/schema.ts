@@ -26,6 +26,7 @@ export default defineSchema({
     lastSignInAt: v.optional(v.number()),
     resetToken: v.optional(v.string()),
     resetTokenExpiresAt: v.optional(v.number()),
+    systemPrompts: v.optional(v.array(v.string())),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
