@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { convexClient } from "@/lib/convexClient";
+import { convexClient } from "../lib/convexClient";
 import { api } from "../../convex/_generated/api";
 import { secureStorage } from "../lib/secureStorage";
 
