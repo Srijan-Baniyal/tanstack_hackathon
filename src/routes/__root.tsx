@@ -2,8 +2,6 @@ import { useState } from "react";
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConvexProvider } from "convex/react";
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { TanStackDevtools } from "@tanstack/react-devtools";
 import appCss from "../styles.css?url";
 import ThemeProvider from "../provider/ThemeProvider";
 import { Toaster } from "../components/ui/sonner";
@@ -102,29 +100,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebApplication",
-              "name": "MeshMind",
-              "description": "AI-Powered Chat and Collaboration Platform",
-              "url": "https://meshmind.app",
-              "applicationCategory": "BusinessApplication",
-              "operatingSystem": "Web",
-              "offers": {
-                "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "USD"
-              },
-              "creator": {
-                "@type": "Organization",
-                "name": "MeshMind Team"
-              }
-            })
-          }}
-        />
+        <script/>
       </head>
       <body>
         <QueryClientProvider client={queryClient}>
@@ -140,17 +116,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             </ThemeProvider>
           </ConvexProvider>
         </QueryClientProvider>
-        <TanStackDevtools
-          config={{
-            position: "bottom-right",
-          }}
-          plugins={[
-            {
-              name: "Tanstack Router",
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        />
         <Scripts />
       </body>
     </html>
