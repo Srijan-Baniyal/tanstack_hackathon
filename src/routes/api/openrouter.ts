@@ -6,7 +6,7 @@ import {
   jsonResponse,
   loadUserKeys,
   RequestPayload,
-} from "@/lib/server/chat-route-utils";
+} from "../../lib/server/chat-route-utils";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_TITLE = "MeshMind Chat";
