@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "../../components/ui/button";
 import { toast } from "sonner";
-import { useAuthStore } from "@/zustand/AuthStore";
+import { useAuthStore } from "../../zustand/AuthStore";
 
 type OAuthProvider = "google" | "github";
 

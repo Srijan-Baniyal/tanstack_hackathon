@@ -1,9 +1,9 @@
-import { Button } from "@/components/ui/button";
-import { HoverBorderGradient } from "@/components/ui/hover-border-gradient";
+import { Button } from "./ui/button";
+import { HoverBorderGradient } from "./ui/hover-border-gradient";
 import { ArrowRight, GitBranch } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { useAuthStore } from "@/zustand/AuthStore";
+import { useAuthStore } from "../zustand/AuthStore";
 
 export default function HeroSection() {
   const [isVisible, setIsVisible] = useState(false);

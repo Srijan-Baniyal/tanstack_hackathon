@@ -1,6 +1,6 @@
-import { MorphingText } from "@/components/ui/morphing";
+import { MorphingText } from "../ui/morphing";
 import { useMemo } from "react";
-import { useAuthStore } from "@/zustand/AuthStore";
+import { useAuthStore } from "../../zustand/AuthStore";
 
 export default function ChatEmptyState() {
   const user = useAuthStore((state) => state.user);

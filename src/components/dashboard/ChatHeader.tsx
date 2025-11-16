@@ -1,9 +1,9 @@
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Button } from "../ui/button";
+import { Separator } from "../ui/separator";
+import { SidebarTrigger } from "../ui/sidebar";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import SettingsDialog from "@/components/dashboard/SettingDialog";
+import SettingsDialog from "../dashboard/SettingDialog";
 
 interface ChatHeaderProps {
   selectedChat: any | null;

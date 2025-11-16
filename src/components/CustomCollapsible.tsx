@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 
 export type CollapsibleItemStatus = "idle" | "running" | "success" | "error";

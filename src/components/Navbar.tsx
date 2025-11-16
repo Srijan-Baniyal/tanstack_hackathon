@@ -1,4 +1,4 @@
-import ThemeSwitcher from "@/components/ThemeSwitcher";
+import ThemeSwitcher from "./ThemeSwitcher";
 import { Link } from "@tanstack/react-router";
 
 export default function Navbar() {

@@ -6,7 +6,7 @@ import {
   jsonResponse,
   loadUserKeys,
   RequestPayload,
-} from "@/lib/server/chat-route-utils";
+} from "../../lib/server/chat-route-utils";
 
 const API_ROUTE_PATH = "/api/vercel" as const;
 const DEFAULT_TITLE = "MeshMind Chat";

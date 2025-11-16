@@ -4,7 +4,7 @@ import {
   useNavigate,
   useSearch,
 } from "@tanstack/react-router";
-import Navbar from "@/components/Navbar";
+import Navbar from "../components/Navbar";
 import {
   Card,
   CardContent,
@@ -12,10 +12,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useAuthStore } from "@/zustand/AuthStore";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { useAuthStore } from "../zustand/AuthStore";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/reset-password")({

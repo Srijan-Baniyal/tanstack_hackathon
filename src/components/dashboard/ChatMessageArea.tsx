@@ -1,14 +1,14 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import CustomCollapsible from "@/components/CustomCollapsible";
-import type { Chat } from "@/lib/chat-storage";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { ScrollArea } from "../ui/scroll-area";
+import CustomCollapsible from "../CustomCollapsible";
+import type { Chat } from "../../lib/chat-storage";
 import {
   extractMeshAgentSegments,
   type MeshAgentSegment,
-} from "@/lib/mesh/segments";
-import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/zustand/AuthStore";
-import { useChatStore } from "@/zustand/ChatStore";
+} from "../../lib/mesh/segments";
+import { cn } from "../../lib/utils";
+import { useAuthStore } from "../../zustand/AuthStore";
+import { useChatStore } from "../../zustand/ChatStore";
 import type { UIMessage } from "ai";
 import { Loader2 } from "lucide-react";
 import { Streamdown } from "streamdown";

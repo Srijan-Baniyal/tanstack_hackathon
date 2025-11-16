@@ -7,11 +7,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+} from "../ui/dialog";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
   SettingsIcon,
   Plus,
@@ -21,8 +21,8 @@ import {
   DollarSign,
   RefreshCw,
 } from "lucide-react";
-import { getSettings, saveSettings, type Settings } from "@/lib/settings";
-import { useVercelCredits, useOpenRouterCredits } from "@/lib/credits";
+import { getSettings, saveSettings, type Settings } from "../../lib/settings";
+import { useVercelCredits, useOpenRouterCredits } from "../../lib/credits";
 import { useAuthStore } from "@/zustand/AuthStore";
 import { api } from "../../../convex/_generated/api";
 import { toast } from "sonner";
@@ -46,7 +46,7 @@ export default function SettingsDialog() {
   const [isLoadingKeys, setIsLoadingKeys] = useState(false);
   const [showOpenRouterKey, setShowOpenRouterKey] = useState(false);
   const [showVercelKey, setShowVercelKey] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [ setUser] = useState<any>(null);
 
   const initialSettings = getSettings();
   const callAuthenticatedAction = useAuthStore(

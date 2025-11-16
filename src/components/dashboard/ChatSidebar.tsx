@@ -10,9 +10,9 @@ import {
   SidebarMenuButton,
   SidebarInput,
   SidebarFooter,
-} from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+} from "../ui/sidebar";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import {
   Plus,
   Search,
@@ -29,7 +29,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "../ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,7 +39,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "../ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -47,14 +47,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { Chat } from "@/lib/chat-storage";
+} from "../ui/dialog";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import type { Chat } from "../../lib/chat-storage";
 import { toast } from "sonner";
-import { useAuthStore } from "@/zustand/AuthStore";
-import { useChatStore } from "@/zustand/ChatStore";
+import { useAuthStore } from "../../zustand/AuthStore";
+import { useChatStore } from "../../zustand/ChatStore";
 
 const getInitials = (fullName: string, email: string) => {
   const trimmed = fullName.trim();

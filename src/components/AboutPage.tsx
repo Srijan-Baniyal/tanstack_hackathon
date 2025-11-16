@@ -4,10 +4,10 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+} from "./ui/card";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Separator } from "./ui/separator";
 import { Lightbulb, Zap, Shield, Play, Github } from "lucide-react";
 import { HoverBorderGradient } from "./ui/hover-border-gradient";
 

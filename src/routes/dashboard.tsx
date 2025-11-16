@@ -1,13 +1,13 @@
 import { useEffect } from "react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import ChatSidebar from "@/components/dashboard/ChatSidebar";
-import ChatHeader from "@/components/dashboard/ChatHeader";
-import ChatEmptyState from "@/components/dashboard/ChatEmptyState";
-import ChatMessageArea from "@/components/dashboard/ChatMessageArea";
-import ChatInput from "@/components/dashboard/ChatInput";
-import { useChatStore } from "@/zustand/ChatStore";
-import { useAuthStore } from "@/zustand/AuthStore";
+import { SidebarProvider } from "../components/ui/sidebar";
+import ChatSidebar from "../components/dashboard/ChatSidebar";
+import ChatHeader from "../components/dashboard/ChatHeader";
+import ChatEmptyState from "../components/dashboard/ChatEmptyState";
+import ChatMessageArea from "../components/dashboard/ChatMessageArea";
+import ChatInput from "../components/dashboard/ChatInput";
+import { useChatStore } from "../zustand/ChatStore";
+import { useAuthStore } from "../zustand/AuthStore";
 
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: async () => {

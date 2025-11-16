@@ -8,27 +8,27 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "./ui/dialog";
 import { toast } from "sonner";
 import { Github } from "lucide-react";
-import { useAuthStore } from "@/zustand/AuthStore";
+import { useAuthStore } from "../zustand/AuthStore";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "./ui/tooltip";
 
 type OAuthProvider = "google" | "github";
 

@@ -1,22 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "../ui/button";
+import { Textarea } from "../ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { getSettings, saveSettings } from "@/lib/settings";
+} from "../ui/select";
+import { getSettings, saveSettings } from "../../lib/settings";
 import {
   useOpenRouterModels,
   useVercelModels,
   type Model,
   type ProviderType,
-} from "@/lib/models";
+} from "../../lib/models";
 import { Send, RefreshCw, SlidersHorizontal } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "../ui/badge";
 import {
   Sheet,
   SheetContent,
@@ -25,7 +25,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet";
+} from "../ui/sheet";
 import {
   MAX_AGENTS,
   NONE_PROMPT_KEY,
@@ -33,9 +33,9 @@ import {
   type AgentConfig,
   type PreparedAgentConfig,
   type SystemPromptKey,
-} from "@/zustand/AgentStore";
-import { useChatStore } from "@/zustand/ChatStore";
-import { useAuthStore } from "@/zustand/AuthStore";
+} from "../../zustand/AgentStore";
+import { useChatStore } from "../../zustand/ChatStore";
+import { useAuthStore } from "../../zustand/AuthStore";
 import { api } from "../../../convex/_generated/api";
 
 const PANEL_LABEL_CLASS =
