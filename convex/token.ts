@@ -8,8 +8,10 @@ export type TokenPayload = {
   email: string;
 };
 
-const ACCESS_TOKEN_TTL = process.env.JWT_ACCESS_TOKEN_TTL || "15m";
-const REFRESH_TOKEN_TTL = process.env.JWT_REFRESH_TOKEN_TTL || "7d";
+// Increase default TTLs so sessions last much longer in production
+// You can still override these by setting the corresponding env vars.
+const ACCESS_TOKEN_TTL = process.env.JWT_ACCESS_TOKEN_TTL || "12h";
+const REFRESH_TOKEN_TTL = process.env.JWT_REFRESH_TOKEN_TTL || "365d";
 
 const getEnvOrDevDefault = (name: string, devDefault: string) => {
   const value = process.env[name as keyof typeof process.env] as
