@@ -296,9 +296,6 @@ export const saveAgentConfigs = action({
     agents: v.array(agentConfigValidator),
   },
   handler: async (ctx, args): Promise<FormattedChat> => {
-    const payload = verifyAccessToken(args.accessToken);
-    const userId = payload.userId as Id<"users">;
-    const chat = await ensureOwnership(ctx, userId, args.chatId);
     const now = Date.now();
 
     await ctx.runMutation(internal.chatsInternal.internalUpdateAgentConfigs, {

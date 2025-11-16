@@ -12,8 +12,6 @@ import { useChatStore } from "@/zustand/ChatStore";
 import type { UIMessage } from "ai";
 import { Loader2 } from "lucide-react";
 import { Streamdown } from "streamdown";
-import { useQuery } from "@tanstack/react-query";
-import { getSettings } from "@/lib/settings";
 
 const getUserInitials = (
   fullName: string | undefined,
@@ -76,12 +74,12 @@ export default function ChatMessageArea({
       : null;
 
   // Auto-refresh settings every 2 seconds to get latest system prompts
-  const { data: settings } = useQuery({
-    queryKey: ["settings"],
-    queryFn: () => getSettings(),
-    refetchInterval: 2000,
-    staleTime: 1000,
-  });
+  // const { data: settings } = useQuery({
+  //   queryKey: ["settings"],
+  //   queryFn: () => getSettings(),
+  //   refetchInterval: 2000,
+  //   staleTime: 1000,
+  // });
 
   return (
     <ScrollArea className="h-full p-4 md:p-6">
@@ -167,22 +165,6 @@ export default function ChatMessageArea({
                     : "bg-muted text-muted-foreground";
 
                   // Find matching agent config
-                  const agentConfig = activeAgents[segment.agentIndex - 1];
-
-                  // Use the latest system prompt from settings if available
-                  const systemPrompt =
-                    settings?.systemPrompts?.[segment.agentIndex - 1] ||
-                    agentConfig?.systemPrompt?.trim() ||
-                    "";
-                  const truncatedPrompt =
-                    systemPrompt.length > 220
-                      ? `${systemPrompt.slice(0, 220).trim()}…`
-                      : systemPrompt;
-                  const webSearch =
-                    agentConfig?.webSearch && agentConfig.webSearch !== "none"
-                      ? agentConfig.webSearch
-                      : null;
-
                   // Disable interaction when pending or running
                   const canInteract = isComplete;
 
