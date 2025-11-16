@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { convexClient } from "@/lib/convexClient";
 import { api } from "../../convex/_generated/api";
-import { secureStorage } from "@/lib/secureStorage";
+import { secureStorage } from "../lib/secureStorage";
 
 type AuthUser = {
   id: string;

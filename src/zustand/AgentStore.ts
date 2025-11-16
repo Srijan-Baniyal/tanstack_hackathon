@@ -3,7 +3,7 @@ import {
   fetchOpenRouterModels,
   type Model,
   type ProviderType,
-} from "@/lib/models";
+} from "../lib/models";
 
 export const DEFAULT_AGENT_COUNT = 1;
 export const MAX_AGENTS = 10;

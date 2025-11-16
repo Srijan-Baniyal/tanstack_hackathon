@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 import type { UIMessage } from "ai";
-import { convexClient } from "@/lib/convexClient";
-import { extractMeshAgentSegments, type MeshAgentSegment } from "@/lib/mesh/segments";
+import { convexClient } from "../lib/convexClient";
+import { extractMeshAgentSegments, type MeshAgentSegment } from "../lib/mesh/segments";
 import { api } from "../../convex/_generated/api";
 import {
   mapServerChat,
@@ -12,9 +12,9 @@ import {
   type Message,
   type ServerChat,
   type StoredAgentConfig,
-} from "@/lib/chat-storage";
-import type { PreparedAgentConfig } from "@/zustand/AgentStore";
-import { useAuthStore } from "@/zustand/AuthStore";
+} from "../lib/chat-storage";
+import type { PreparedAgentConfig } from "../zustand/AgentStore";
+import { useAuthStore } from "../zustand/AuthStore";
 
 type ActionReference = Parameters<typeof convexClient.action>[0];
 
