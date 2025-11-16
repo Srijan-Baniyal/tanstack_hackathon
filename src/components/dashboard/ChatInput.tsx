@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { getSettings, saveSettings } from "../../lib/settings";
+import { getSettings } from "../../lib/settings";
 import {
   useOpenRouterModels,
   useVercelModels,
@@ -61,9 +61,7 @@ export default function ChatInput({
 }: ChatInputProps) {
   const [message, setMessage] = useState("");
   const [settings, setSettings] = useState(() => getSettings());
-  const [systemPrompts, setSystemPrompts] = useState<string[]>(
-    settings.systemPrompts
-  );
+  const [systemPrompts, setSystemPrompts] = useState<string[]>([]);
   const callAuthenticatedAction = useAuthStore(
     (state) => state.callAuthenticatedAction
   );
@@ -118,7 +116,6 @@ export default function ChatInput({
     const refreshSettings = () => {
       const next = getSettings();
       setSettings(next);
-      setSystemPrompts(next.systemPrompts);
     };
 
     refreshSettings();
@@ -151,46 +148,30 @@ export default function ChatInput({
   }, [systemPrompts.length, validateSystemPromptKeys]);
 
   useEffect(() => {
-    if (settings.openRouterKey || settings.vercelAiGateway) {
-      return;
-    }
-
     let cancelled = false;
 
-    const hydrateRemoteKeys = async () => {
+    const hydrateRemotePrompts = async () => {
       try {
-        const keys = await callAuthenticatedAction<
-          { openrouterKey: string | null; vercelKey: string | null } | null
-        >(api.authActions.getUserKeys);
+        const prompts = await callAuthenticatedAction<string[]>(
+          api.authActions.getSystemPrompts
+        );
 
-        if (cancelled || !keys) {
+        if (cancelled) {
           return;
         }
 
-        setSettings((prev) => {
-          const nextSettings = {
-            ...prev,
-            openRouterKey: keys.openrouterKey ?? "",
-            vercelAiGateway: keys.vercelKey ?? "",
-          };
-          saveSettings(nextSettings);
-          return nextSettings;
-        });
+        setSystemPrompts(prompts || []);
       } catch (error) {
-        console.error("Unable to load stored API keys", error);
+        console.error("Unable to load system prompts", error);
       }
     };
 
-    void hydrateRemoteKeys();
+    void hydrateRemotePrompts();
 
     return () => {
       cancelled = true;
     };
-  }, [
-    callAuthenticatedAction,
-    settings.openRouterKey,
-    settings.vercelAiGateway,
-  ]);
+  }, [callAuthenticatedAction]);
 
   useEffect(() => {
     if (!selectedChatId || isNewChatMode) {
@@ -583,6 +564,16 @@ export default function ChatInput({
                     ))}
                   </SelectContent>
                 </Select>
+                {systemPrompts.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-muted-foreground">Available prompts:</p>
+                    {systemPrompts.map((prompt, index) => (
+                      <div key={index} className="rounded-md bg-muted/50 p-2 text-xs">
+                        {prompt}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-4">
