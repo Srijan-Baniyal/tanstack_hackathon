@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { getSettings, saveSettings, type Settings } from "../../lib/settings";
 import { useVercelCredits, useOpenRouterCredits } from "../../lib/credits";
-import { useAuthStore } from "@/zustand/AuthStore";
+import { useAuthStore } from "../../zustand/AuthStore";
 import { api } from "../../../convex/_generated/api";
 import { toast } from "sonner";
 
