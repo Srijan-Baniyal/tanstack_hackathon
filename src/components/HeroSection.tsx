@@ -92,10 +92,6 @@ export default function HeroSection() {
           </div>
           <div className="flex items-center gap-2">
             <div className="h-1.5 w-1.5 rounded-full bg-foreground" />
-            <span>Model comparison</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-foreground" />
             <span>OAuth & secure auth</span>
           </div>
         </div>
@@ -115,7 +111,7 @@ export default function HeroSection() {
         </div>
         {/* Subtle hint text */}
         <p className="mt-12 text-xs text-muted-foreground">
-          Powered by OpenRouter · Vercel AI · Convex · TanStack Start · FireCrawl · Cloudflare
+          Powered by OpenRouter · Vercel AI · Convex · TanStack Start · FireCrawl · Netlify 
         </p>
       </div>
     </div>
