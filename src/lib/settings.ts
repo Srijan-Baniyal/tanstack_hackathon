@@ -54,5 +54,8 @@ export const saveSettings = (settings: Settings) => {
 
   window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(sanitized));
 
+  // Dispatch custom event for same-tab updates
+  window.dispatchEvent(new CustomEvent('settingsChanged', { detail: sanitized }));
+
   return sanitized;
 };

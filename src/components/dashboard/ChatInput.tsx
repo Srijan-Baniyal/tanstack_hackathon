@@ -129,13 +129,19 @@ export default function ChatInput({
       }
     };
 
+    const handleSettingsChanged = () => {
+      refreshSettings();
+    };
+
     if (typeof window !== "undefined") {
       window.addEventListener("storage", handleStorage);
+      window.addEventListener("settingsChanged", handleSettingsChanged);
     }
 
     return () => {
       if (typeof window !== "undefined") {
         window.removeEventListener("storage", handleStorage);
+        window.removeEventListener("settingsChanged", handleSettingsChanged);
       }
     };
   }, []);
