@@ -5,9 +5,9 @@ import { ConvexProvider } from "convex/react";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import appCss from "../styles.css?url";
-import ThemeProvider from "@/provider/ThemeProvider";
-import { Toaster } from "@/components/ui/sonner";
-import { convexClient } from "@/lib/convexClient";
+import ThemeProvider from "../provider/ThemeProvider";
+import { Toaster } from "../components/ui/sonner";
+import { convexClient } from "../lib/convexClient";
 
 export const Route = createRootRoute({
   head: () => ({
