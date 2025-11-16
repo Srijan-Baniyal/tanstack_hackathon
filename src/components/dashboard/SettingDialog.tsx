@@ -45,8 +45,7 @@ export default function SettingsDialog() {
   const [newPrompt, setNewPrompt] = useState("");
   const [isLoadingKeys, setIsLoadingKeys] = useState(false);
   const [showOpenRouterKey, setShowOpenRouterKey] = useState(false);
-  const [showVercelKey, setShowVercelKey] = useState(false);
-  const [ setUser] = useState<any>(null);
+  const [showVercelKey, setShowVercelKey] = useState(false); 
 
   const initialSettings = getSettings();
   const callAuthenticatedAction = useAuthStore(
@@ -150,13 +149,21 @@ export default function SettingsDialog() {
         }
 
         // Set user profile
-        setUser(userProfile);
         form.setFieldValue("fullName", userProfile?.fullName || "");
         form.setFieldValue("email", userProfile?.email || "");
 
         // Only set keys if they exist, otherwise use empty strings for new users
-        form.setFieldValue("openRouterKey", keys?.openrouterKey || "");
-        form.setFieldValue("vercelAiGateway", keys?.vercelKey || "");
+        const openRouterKey = keys?.openrouterKey || "";
+        const vercelKey = keys?.vercelKey || "";
+        form.setFieldValue("openRouterKey", openRouterKey);
+        form.setFieldValue("vercelAiGateway", vercelKey);
+
+        // Update localStorage to ensure credits hooks can access the keys
+        saveSettings({
+          openRouterKey,
+          vercelAiGateway: vercelKey,
+          systemPrompts: initialSettings.systemPrompts || [],
+        });
       } catch (error) {
         if (!cancelled) {
           console.error("Failed to load data", error);
