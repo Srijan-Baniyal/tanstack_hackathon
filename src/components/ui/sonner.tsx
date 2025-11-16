@@ -8,7 +8,7 @@ import {
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 type ToastOptions = NonNullable<ToasterProps["toastOptions"]>;
 

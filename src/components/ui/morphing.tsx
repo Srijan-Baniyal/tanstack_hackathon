@@ -1,7 +1,7 @@
 import * as React from "react";
 import { AnimatePresence, motion, type HTMLMotionProps } from "motion/react";
 
-import { useIsInView, type UseIsInViewOptions } from "@/hooks/use-is-in-view";
+import { useIsInView, type UseIsInViewOptions } from "../../hooks/use-is-in-view";
 
 function segmentGraphemes(text: string): string[] {
   if (typeof Intl.Segmenter === "function") {
