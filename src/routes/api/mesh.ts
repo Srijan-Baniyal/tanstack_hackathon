@@ -6,7 +6,7 @@ import {
   jsonResponse,
   loadUserKeys,
   RequestPayload,
-} from "@/lib/server/chat-route-utils";
+} from "../../lib/server/chat-route-utils";
 import FirecrawlApp from "@mendable/firecrawl-js";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
