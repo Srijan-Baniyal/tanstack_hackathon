@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "build": "vite build && tsc --noEmit",
-    "preview":"vite preview",
+    "preview": "vite preview",
     "deploy": "pnpm run build && wrangler deploy",
     "cf-typegen": "wrangler types",
     "serve": "vite preview",
@@ -70,7 +70,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.14.2",
+    "@netlify/vite-plugin-tanstack-start": "^1.1.12",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.0",
     "@types/jsonwebtoken": "^9.0.10",
@@ -83,7 +83,6 @@
     "typescript": "^5.9.3",
     "vite": "^7.2.2",
     "vitest": "^4.0.9",
-    "web-vitals": "^5.1.0",
-    "wrangler": "^4.47.0"
+    "web-vitals": "^5.1.0"
   }
 }
