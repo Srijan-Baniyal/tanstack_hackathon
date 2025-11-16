@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
@@ -41,6 +41,11 @@ export default function CustomCollapsible({
   items,
 }: CustomCollapsibleProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  // Sync internal state when defaultOpen prop changes
+  useEffect(() => {
+    setIsOpen(defaultOpen);
+  }, [defaultOpen]);
 
   const resolvedItems = useMemo(
     () =>
