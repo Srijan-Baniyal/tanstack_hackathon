@@ -456,11 +456,11 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
           
           if (!accessToken) {
             console.error("Token refresh succeeded but no access token available");
-            authState.signOut();
             throw new Error("Session expired. Please sign in again.");
           }
 
           console.log("Token refresh successful, retrying request...");
+          console.log("New token preview:", accessToken.substring(0, 20) + "...");
           
           // Retry the request with the new token
           response = await fetch(endpoint, {
@@ -476,16 +476,28 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
             }),
           });
           
-          // If still unauthorized after refresh, sign out
+          // If still unauthorized after refresh, it's likely a server-side issue
           if (response.status === 401) {
             console.error("Still unauthorized after token refresh");
-            authState.signOut();
-            throw new Error("Session expired. Please sign in again.");
+            // Try to parse the error response
+            let errorDetail = "Unknown error";
+            try {
+              const errorData = await response.json();
+              errorDetail = errorData.error || JSON.stringify(errorData);
+            } catch {
+              errorDetail = await response.text().catch(() => "Failed to read error");
+            }
+            console.error("Server error details:", errorDetail);
+            throw new Error(`Authentication failed: ${errorDetail}. Please try signing in again.`);
           }
         } catch (refreshError) {
           console.error("Token refresh failed during message send", refreshError);
-          authState.signOut();
-          throw new Error("Session expired. Please sign in again.");
+          // Only sign out if it's definitely a token expiry issue
+          const errorMessage = refreshError instanceof Error ? refreshError.message : String(refreshError);
+          if (errorMessage.includes("expired") || errorMessage.includes("Invalid refresh token")) {
+            authState.signOut();
+          }
+          throw refreshError;
         }
       }
 

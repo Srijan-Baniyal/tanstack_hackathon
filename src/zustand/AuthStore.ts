@@ -200,32 +200,66 @@ export const useAuthStore = create<AuthState>()((set, get) => {
   const runRefresh = async (): Promise<TokenBundle | null> => {
     const currentTokens = get().tokens;
     if (!currentTokens) {
+      console.warn("AuthStore: runRefresh called but no tokens available");
       return null;
     }
 
     if (refreshPromise) {
+      console.log("AuthStore: refresh already in progress, reusing promise");
       return refreshPromise;
     }
 
+    console.log("AuthStore: initiating token refresh...");
     const refreshRef = getAuthRef(
       "refreshSession",
       "authActions:refreshSession"
     );
     const promise = (async () => {
-      const refreshed = (await convexClient.action(refreshRef, {
-        refreshToken: currentTokens.refreshToken,
-      })) as { tokens: TokenBundle };
-      const nextTokens = refreshed.tokens;
-      const currentUser = get().user;
-      if (currentUser) {
-        await persistAuthState(currentUser, nextTokens);
+      try {
+        console.log("AuthStore: calling refresh endpoint...");
+        const refreshed = (await convexClient.action(refreshRef, {
+          refreshToken: currentTokens.refreshToken,
+        })) as { tokens: TokenBundle };
+        
+        console.log("AuthStore: refresh endpoint succeeded");
+        const nextTokens = refreshed.tokens;
+        const currentUser = get().user;
+        
+        // Log token preview (first 20 chars only for security)
+        console.log("AuthStore: new access token preview:", nextTokens.accessToken.substring(0, 20) + "...");
+        
+        if (currentUser) {
+          await persistAuthState(currentUser, nextTokens);
+          console.log("AuthStore: new tokens persisted");
+        }
+        set({ tokens: nextTokens });
+        console.log("AuthStore: token refresh complete");
+        return nextTokens;
+      } catch (error) {
+        console.error("AuthStore: refresh endpoint error:", error);
+        throw error;
       }
-      set({ tokens: nextTokens });
-      return nextTokens;
     })().catch((error) => {
-      console.error("AuthStore: refresh failed", error);
-      clearPersistedState();
-      set({ user: null, tokens: null });
+      console.error("AuthStore: refresh failed with error:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("AuthStore: error message:", errorMessage);
+      
+      // Check if it's a JWT verification error (likely secret mismatch)
+      const isJwtError = errorMessage.includes("JsonWebTokenError") ||
+                        errorMessage.includes("invalid signature") ||
+                        errorMessage.includes("jwt malformed");
+      
+      // Clear state if token is expired, invalid, or there's a JWT error
+      if (errorMessage.includes("expired") || 
+          errorMessage.includes("Invalid refresh token") ||
+          isJwtError) {
+        console.log("AuthStore: clearing persisted state due to invalid/expired tokens");
+        if (isJwtError) {
+          console.warn("⚠️ JWT verification failed. This usually means JWT secrets changed. Please sign in again.");
+        }
+        clearPersistedState();
+        set({ user: null, tokens: null });
+      }
       throw error;
     });
 

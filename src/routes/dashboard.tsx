@@ -6,6 +6,7 @@ import ChatHeader from "../components/dashboard/ChatHeader";
 import ChatEmptyState from "../components/dashboard/ChatEmptyState";
 import ChatMessageArea from "../components/dashboard/ChatMessageArea";
 import ChatInput from "../components/dashboard/ChatInput";
+import { AuthHealthCheck } from "../components/AuthHealthCheck";
 import { useChatStore } from "../zustand/ChatStore";
 import { useAuthStore } from "../zustand/AuthStore";
 
@@ -74,6 +75,7 @@ function Dashboard() {
 
   return (
     <SidebarProvider>
+      <AuthHealthCheck />
       <div className="flex h-screen w-full">
         <ChatSidebar
           conversations={conversations}
