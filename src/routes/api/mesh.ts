@@ -10,8 +10,8 @@ import {
 import FirecrawlApp from "@mendable/firecrawl-js";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const VERCEL_BASE_URL = process.env.VERCEL_AI_GATEWAY_URL ??
-  "https://ai-gateway.vercel.sh/v1";
+const VERCEL_BASE_URL =
+  process.env.VERCEL_AI_GATEWAY_URL ?? "https://ai-gateway.vercel.sh/v1";
 
 const API_ROUTE_PATH = "/api/mesh" as const;
 
@@ -28,7 +28,9 @@ const encodeAgentEnd = (index: number) => `[[mesh-agent-end:${index}]]\n`;
 
 const getOpenRouterKey = async (accessToken: string) => {
   const keys = await loadUserKeys(accessToken);
-  const storedKey = keys?.openrouterKey ? String(keys.openrouterKey).trim() : null;
+  const storedKey = keys?.openrouterKey
+    ? String(keys.openrouterKey).trim()
+    : null;
 
   return (
     (storedKey && storedKey.length > 0 ? storedKey : null) ??
@@ -64,10 +66,10 @@ const extractUrls = (text: string): string[] => {
 // Clean and format markdown content for better AI consumption
 const formatScrapedContent = (markdown: string, metadata?: any): string => {
   let content = markdown.trim();
-  
+
   // Remove excessive newlines (more than 2 consecutive)
-  content = content.replace(/\n{3,}/g, '\n\n');
-  
+  content = content.replace(/\n{3,}/g, "\n\n");
+
   // Build a structured header with metadata if available
   const headers: string[] = [];
   if (metadata?.title) {
@@ -83,14 +85,18 @@ const formatScrapedContent = (markdown: string, metadata?: any): string => {
     const date = metadata.publishedDate || metadata.publishDate;
     headers.push(`**Published:** ${date}`);
   }
-  if (metadata?.keywords && Array.isArray(metadata.keywords) && metadata.keywords.length > 0) {
-    headers.push(`**Keywords:** ${metadata.keywords.join(', ')}`);
+  if (
+    metadata?.keywords &&
+    Array.isArray(metadata.keywords) &&
+    metadata.keywords.length > 0
+  ) {
+    headers.push(`**Keywords:** ${metadata.keywords.join(", ")}`);
   }
-  
+
   if (headers.length > 0) {
-    content = `${headers.join('\n')}\n\n---\n\n${content}`;
+    content = `${headers.join("\n")}\n\n---\n\n${content}`;
   }
-  
+
   return content;
 };
 
@@ -107,38 +113,38 @@ async function scrapeWithFirecrawl(urls: string[]): Promise<string> {
 
     for (const url of urls) {
       try {
-        const scrapeResult = await app.scrape(url, {
+        const scrapeResult = (await app.scrape(url, {
           formats: ["markdown", "html"],
           onlyMainContent: true,
           includeTags: ["article", "main", "content"],
           excludeTags: ["nav", "footer", "header", "aside", "script", "style"],
           waitFor: 2000,
-        }) as any;
-        
+        })) as any;
+
         if (scrapeResult && scrapeResult.markdown) {
           const formattedContent = formatScrapedContent(
             scrapeResult.markdown,
-            scrapeResult.metadata
+            scrapeResult.metadata,
           );
-          
+
           // Add structured header
           results.push(
-            `\n## 🌐 Scraped Content: ${url}\n\n${formattedContent}\n`
+            `\n## 🌐 Scraped Content: ${url}\n\n${formattedContent}\n`,
           );
         } else if (scrapeResult && scrapeResult.html) {
           // Fallback to HTML if markdown not available
           results.push(
-            `\n## 🌐 Content from: ${url}\n\n${scrapeResult.html.substring(0, 5000)}...\n`
+            `\n## 🌐 Content from: ${url}\n\n${scrapeResult.html.substring(0, 5000)}...\n`,
           );
         } else {
           results.push(
-            `\n⚠️ **Failed to scrape:** ${url}\nNo content returned from Firecrawl.\n`
+            `\n⚠️ **Failed to scrape:** ${url}\nNo content returned from Firecrawl.\n`,
           );
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         results.push(
-          `\n❌ **Error scraping:** ${url}\n**Error:** ${message}\n`
+          `\n❌ **Error scraping:** ${url}\n**Error:** ${message}\n`,
         );
       }
     }
@@ -166,9 +172,12 @@ async function scrapeWithFirecrawl(urls: string[]): Promise<string> {
 async function callOpenRouter(
   apiKey: string,
   modelId: string,
-  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
 ) {
-  const referer = process.env.OPENROUTER_REFERRER ?? process.env.APP_BASE_URL ?? "https://tanstack.com/start";
+  const referer =
+    process.env.OPENROUTER_REFERRER ??
+    process.env.APP_BASE_URL ??
+    "https://tanstack.com/start";
   const title = process.env.OPENROUTER_TITLE ?? "MeshMind Chat";
 
   const response = await fetch(OPENROUTER_API_URL, {
@@ -198,7 +207,10 @@ async function callOpenRouter(
 
   if (typeof primary.content === "string") return primary.content;
   if (Array.isArray(primary.content)) {
-    return primary.content.map((s: any) => s?.text ?? "").filter(Boolean).join("\n");
+    return primary.content
+      .map((s: any) => s?.text ?? "")
+      .filter(Boolean)
+      .join("\n");
   }
 
   return "";
@@ -207,9 +219,12 @@ async function callOpenRouter(
 async function callVercelGateway(
   apiKey: string,
   modelId: string,
-  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
 ) {
-  const referer = process.env.VERCEL_REFERRER ?? process.env.APP_BASE_URL ?? "https://tanstack.com/start";
+  const referer =
+    process.env.VERCEL_REFERRER ??
+    process.env.APP_BASE_URL ??
+    "https://tanstack.com/start";
   const title = process.env.VERCEL_TITLE ?? "MeshMind Chat";
 
   const response = await fetch(`${VERCEL_BASE_URL}/chat/completions`, {
@@ -235,11 +250,15 @@ async function callVercelGateway(
 
   const payload = await response.json();
   const primary = payload.choices?.[0]?.message;
-  if (!primary) throw new Error("Vercel AI Gateway returned an empty response.");
+  if (!primary)
+    throw new Error("Vercel AI Gateway returned an empty response.");
 
   if (typeof primary.content === "string") return primary.content;
   if (Array.isArray(primary.content)) {
-    return primary.content.map((s: any) => s?.text ?? "").filter(Boolean).join("\n");
+    return primary.content
+      .map((s: any) => s?.text ?? "")
+      .filter(Boolean)
+      .join("\n");
   }
 
   return "";
@@ -263,7 +282,10 @@ export const Route = createFileRoute(API_ROUTE_PATH as never)({
           verifyAccessToken(accessToken);
         } catch (error) {
           console.warn("Invalid access token presented to /api/mesh", error);
-          return jsonResponse({ error: "Session expired. Please sign in again." }, 401);
+          return jsonResponse(
+            { error: "Session expired. Please sign in again." },
+            401,
+          );
         }
 
         let payload: RequestPayload;
@@ -287,14 +309,25 @@ export const Route = createFileRoute(API_ROUTE_PATH as never)({
         return new Response(
           new ReadableStream({
             async start(controller) {
-              // Process agents sequentially to ensure proper ordering
-              for (let i = 0; i < agents.length; i++) {
-                const agent = agents[i];
+              const startTime = Date.now();
+              console.log(
+                `[MESH] Starting parallel execution for ${agents.length} agent(s)`,
+              );
+
+              // Pre-load chat history once for all agents (optimization)
+              const history = await getChatMessages(
+                accessToken,
+                payload.chatId,
+              );
+
+              // Process all agents concurrently for true parallel execution
+              const agentPromises = agents.map(async (agent, i) => {
+                const agentStartTime = Date.now();
                 const idx = i + 1;
                 const resolvedModelId =
                   agent.modelId ??
                   (agent.provider === "openrouter"
-                    ? process.env.OPENROUTER_DEFAULT_MODEL ?? "gpt-4o-mini"
+                    ? (process.env.OPENROUTER_DEFAULT_MODEL ?? "gpt-4o-mini")
                     : "gpt-4o");
                 const metadata: AgentStreamMetadata = {
                   index: idx,
@@ -302,15 +335,10 @@ export const Route = createFileRoute(API_ROUTE_PATH as never)({
                   modelId: resolvedModelId,
                 };
 
-                // Send start marker
-                controller.enqueue(
-                  textEncoder.encode(encodeAgentStart(metadata))
-                );
-
                 let body = "";
 
                 try {
-                  // Handle web scraping if enabled
+                  // Handle web scraping if enabled (can run in parallel per agent)
                   let scrapedContent = "";
                   if (agent.webSearch === "firecrawl") {
                     const urls = extractUrls(payload.currentMessage!);
@@ -320,11 +348,6 @@ export const Route = createFileRoute(API_ROUTE_PATH as never)({
                   }
 
                   // Build messages with scraped content if available
-                  const history = await getChatMessages(
-                    accessToken,
-                    payload.chatId
-                  );
-                  
                   let messageContent = payload.currentMessage!;
                   if (scrapedContent) {
                     // Enhance the prompt with instructions on how to use the scraped content
@@ -334,7 +357,7 @@ export const Route = createFileRoute(API_ROUTE_PATH as never)({
                   const messages = buildChatMessages(
                     history,
                     messageContent,
-                    agent.systemPrompt
+                    agent.systemPrompt,
                   );
 
                   if (agent.provider === "openrouter") {
@@ -345,7 +368,7 @@ export const Route = createFileRoute(API_ROUTE_PATH as never)({
                       body = await callOpenRouter(
                         apiKey,
                         resolvedModelId,
-                        messages
+                        messages,
                       );
                     }
                   } else if (agent.provider === "vercel") {
@@ -356,21 +379,93 @@ export const Route = createFileRoute(API_ROUTE_PATH as never)({
                       body = await callVercelGateway(
                         apiKey,
                         resolvedModelId,
-                        messages
+                        messages,
                       );
                     }
                   } else {
                     body = `Error: Unsupported provider for agent ${idx}`;
                   }
                 } catch (error) {
-                  const message = error instanceof Error && error.message ? error.message : String(error);
+                  const message =
+                    error instanceof Error && error.message
+                      ? error.message
+                      : String(error);
                   body = `Error: ${message}`;
                 }
 
-                // Send content and end marker
-                controller.enqueue(
-                  textEncoder.encode(`${body}${encodeAgentEnd(idx)}`)
+                const agentEndTime = Date.now();
+                const agentDuration = agentEndTime - agentStartTime;
+                console.log(
+                  `[MESH] Agent ${idx} (${metadata.provider}/${metadata.modelId}) completed in ${agentDuration}ms`,
                 );
+
+                return { metadata, body, idx };
+              });
+
+              // Use Promise.allSettled to handle all agents concurrently
+              // This ensures all agents run in parallel and we get results as they complete
+              console.log(
+                `[MESH] Waiting for all ${agents.length} agent(s) to complete...`,
+              );
+              const results = await Promise.allSettled(agentPromises);
+
+              const totalTime = Date.now() - startTime;
+              const successCount = results.filter(
+                (r) => r.status === "fulfilled",
+              ).length;
+              const failureCount = results.filter(
+                (r) => r.status === "rejected",
+              ).length;
+              console.log(
+                `[MESH] All agents completed in ${totalTime}ms (${successCount} succeeded, ${failureCount} failed)`,
+              );
+              console.log(
+                `[MESH] Average time per agent: ${(totalTime / agents.length).toFixed(0)}ms (parallel execution)`,
+              );
+              console.log(
+                `[MESH] Time saved vs sequential: ~${((totalTime / agents.length) * (agents.length - 1) - (totalTime - totalTime / agents.length)).toFixed(0)}ms`,
+              );
+
+              // Stream results in order (by agent index) even though they may complete out of order
+              // This maintains UI consistency while benefiting from parallel execution
+              for (let i = 0; i < results.length; i++) {
+                const result = results[i];
+
+                if (result.status === "fulfilled") {
+                  const { metadata, body, idx } = result.value;
+
+                  // Send start marker
+                  controller.enqueue(
+                    textEncoder.encode(encodeAgentStart(metadata)),
+                  );
+
+                  // Send content and end marker
+                  controller.enqueue(
+                    textEncoder.encode(`${body}${encodeAgentEnd(idx)}`),
+                  );
+                } else {
+                  // Handle rejected promises (shouldn't happen as we catch errors above, but defensive)
+                  const idx = i + 1;
+                  const metadata: AgentStreamMetadata = {
+                    index: idx,
+                    provider: agents[i]?.provider ?? "unknown",
+                    modelId: agents[i]?.modelId ?? undefined,
+                  };
+
+                  const errorMessage =
+                    result.reason instanceof Error
+                      ? result.reason.message
+                      : String(result.reason);
+
+                  controller.enqueue(
+                    textEncoder.encode(encodeAgentStart(metadata)),
+                  );
+                  controller.enqueue(
+                    textEncoder.encode(
+                      `Error: ${errorMessage}${encodeAgentEnd(idx)}`,
+                    ),
+                  );
+                }
               }
 
               controller.close();
@@ -382,7 +477,7 @@ export const Route = createFileRoute(API_ROUTE_PATH as never)({
               "Content-Type": "text/plain; charset=utf-8",
               "Cache-Control": "no-store",
             },
-          }
+          },
         );
       },
     },

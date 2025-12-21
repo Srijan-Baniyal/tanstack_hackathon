@@ -1,6 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { ScrollArea } from "../ui/scroll-area";
 import CustomCollapsible from "../CustomCollapsible";
+import PerformanceStats from "./PerformanceStats";
 import type { Chat } from "../../lib/chat-storage";
 import {
   extractMeshAgentSegments,
@@ -16,7 +17,7 @@ import { Streamdown } from "streamdown";
 const getUserInitials = (
   fullName: string | undefined,
   email: string | undefined,
-  fallback: string
+  fallback: string,
 ) => {
   const name = (fullName ?? "").trim();
   if (name) {
@@ -64,7 +65,7 @@ export default function ChatMessageArea({
   const userInitials = getUserInitials(
     currentUser?.fullName,
     currentUser?.email,
-    conversation.avatar
+    conversation.avatar,
   );
   const userAvatarUrl = currentUser?.avatarUrl ?? null;
   const displayMessages = messages.length > 0 ? messages : [];
@@ -84,6 +85,13 @@ export default function ChatMessageArea({
   return (
     <ScrollArea className="h-full p-4 md:p-6">
       <div className="space-y-4 max-w-3xl mx-auto">
+        {hasMultipleAgents && isStreaming && (
+          <PerformanceStats
+            agentCount={activeAgents.length}
+            isStreaming={isStreaming}
+            className="mb-4"
+          />
+        )}
         {displayMessages.map((message) => {
           const textContent = message.parts
             .filter((part: any) => part.type === "text")
@@ -108,7 +116,7 @@ export default function ChatMessageArea({
               ? activeAgents.map((agent, idx) => {
                   const agentIndex = idx + 1;
                   const existing = parsedSegments.find(
-                    (segment) => segment.agentIndex === agentIndex
+                    (segment) => segment.agentIndex === agentIndex,
                   );
 
                   if (existing) {
@@ -128,7 +136,7 @@ export default function ChatMessageArea({
                     isPending: isStreamingMessage,
                   };
                 })
-                : parsedSegments.length > 0
+              : parsedSegments.length > 0
                 ? parsedSegments.map((seg) => ({ ...seg, isPending: false }))
                 : null;
 
@@ -143,10 +151,20 @@ export default function ChatMessageArea({
                 <div className="flex items-center gap-2 px-1">
                   <div className="h-px flex-1 bg-linear-to-r from-transparent via-border to-transparent" />
                   <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground/70">
-                    Multi-Agent Response
+                    {isStreamingMessage
+                      ? "⚡ Parallel Execution"
+                      : "Multi-Agent Response"}
                   </span>
                   <div className="h-px flex-1 bg-linear-to-r from-transparent via-border to-transparent" />
                 </div>
+                {isStreamingMessage && (
+                  <div className="flex items-center justify-center gap-3 py-2 px-4 bg-blue-500/5 rounded-lg border border-blue-500/20">
+                    <Loader2 className="size-4 animate-spin text-blue-400" />
+                    <span className="text-xs text-blue-400 font-medium">
+                      Processing {activeAgents.length} agent(s) in parallel...
+                    </span>
+                  </div>
+                )}
                 {multiAgentSegments.map((segment, idx) => {
                   const hasContent = segment.content.trim().length > 0;
                   const isPending = segment.isPending === true;
@@ -154,15 +172,15 @@ export default function ChatMessageArea({
 
                   // Status: Complete if has content, Running if streaming and no content, Pending if not streaming and no content
                   const statusLabel = isComplete
-                    ? "Complete"
+                    ? "✓ Complete"
                     : isPending
-                    ? "Running"
-                    : "Pending";
+                      ? "⚡ Running"
+                      : "⋯ Waiting";
                   const statusClasses = isComplete
-                    ? "bg-emerald-500/10 text-emerald-400"
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                     : isPending
-                    ? "bg-blue-500/10 text-blue-400"
-                    : "bg-muted text-muted-foreground";
+                      ? "bg-blue-500/10 text-blue-400 border-blue-500/20 animate-pulse"
+                      : "bg-muted text-muted-foreground border-border/50";
 
                   // Find matching agent config
                   // Disable interaction when pending or running
@@ -185,17 +203,24 @@ export default function ChatMessageArea({
                             Agent {segment.agentIndex}
                           </span>
                           <span className="text-xs truncate text-muted-foreground">
-                            {segment.provider === "vercel" ? "Vercel" : "OpenRouter"}{" "}
+                            {segment.provider === "vercel"
+                              ? "Vercel"
+                              : "OpenRouter"}{" "}
                             · {segment.modelId}
                           </span>
-                          <span
-                            className={cn(
-                              "ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                              statusClasses
+                          <div className="ml-auto flex items-center gap-2">
+                            {isPending && (
+                              <Loader2 className="size-3 animate-spin text-blue-400" />
                             )}
-                          >
-                            {statusLabel}
-                          </span>
+                            <span
+                              className={cn(
+                                "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                statusClasses,
+                              )}
+                            >
+                              {statusLabel}
+                            </span>
+                          </div>
                         </div>
                       }
                     >
@@ -204,20 +229,35 @@ export default function ChatMessageArea({
                           {hasContent ? (
                             <Streamdown
                               className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed"
-                              isAnimating={false}
+                              isAnimating={isPending}
                             >
                               {segment.content}
                             </Streamdown>
                           ) : (
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                            <div className="flex items-center gap-2 text-xs py-3">
                               {isPending ? (
                                 <>
-                                  <Loader2 className="size-3 animate-spin" />
-                                  <span>Generating response...</span>
+                                  <div className="flex gap-1">
+                                    <div
+                                      className="size-1.5 rounded-full bg-blue-400 animate-bounce"
+                                      style={{ animationDelay: "0ms" }}
+                                    />
+                                    <div
+                                      className="size-1.5 rounded-full bg-blue-400 animate-bounce"
+                                      style={{ animationDelay: "150ms" }}
+                                    />
+                                    <div
+                                      className="size-1.5 rounded-full bg-blue-400 animate-bounce"
+                                      style={{ animationDelay: "300ms" }}
+                                    />
+                                  </div>
+                                  <span className="text-blue-400 font-medium">
+                                    Processing in parallel...
+                                  </span>
                                 </>
                               ) : (
                                 <span className="text-muted-foreground/60">
-                                  No response received
+                                  Waiting for response
                                 </span>
                               )}
                             </div>
@@ -237,7 +277,7 @@ export default function ChatMessageArea({
               key={message.id}
               className={cn(
                 "flex gap-3",
-                message.role === "user" ? "justify-end" : "justify-start"
+                message.role === "user" ? "justify-end" : "justify-start",
               )}
             >
               {message.role === "assistant" && (
@@ -252,7 +292,7 @@ export default function ChatMessageArea({
                   "rounded-2xl px-4 py-3 max-w-[80%]",
                   message.role === "user"
                     ? "bg-primary text-primary-foreground"
-                    : "bg-muted"
+                    : "bg-muted",
                 )}
               >
                 <Streamdown
