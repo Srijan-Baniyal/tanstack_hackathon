@@ -311,7 +311,7 @@ export const Route = createFileRoute(API_ROUTE_PATH as never)({
             async start(controller) {
               const startTime = Date.now();
               console.log(
-                `[MESH] Starting parallel execution for ${agents.length} agent(s)`,
+                `[MESH] Starting parallel streaming for ${agents.length} agent(s)`,
               );
 
               // Pre-load chat history once for all agents (optimization)
@@ -320,7 +320,10 @@ export const Route = createFileRoute(API_ROUTE_PATH as never)({
                 payload.chatId,
               );
 
-              // Process all agents concurrently for true parallel execution
+              // Track completed agents to avoid race conditions
+              let completedCount = 0;
+
+              // Process all agents concurrently with streaming as they complete
               const agentPromises = agents.map(async (agent, i) => {
                 const agentStartTime = Date.now();
                 const idx = i + 1;
@@ -350,7 +353,6 @@ export const Route = createFileRoute(API_ROUTE_PATH as never)({
                   // Build messages with scraped content if available
                   let messageContent = payload.currentMessage!;
                   if (scrapedContent) {
-                    // Enhance the prompt with instructions on how to use the scraped content
                     messageContent = `${payload.currentMessage}\n\n${scrapedContent}\n\n---\n\n**Instructions:**\n- Use the scraped web content above to answer the user's question\n- Cite specific information from the sources when relevant\n- If the content doesn't fully answer the question, acknowledge what's missing\n- Provide accurate, well-sourced information based on the scraped content`;
                   }
 
@@ -396,77 +398,27 @@ export const Route = createFileRoute(API_ROUTE_PATH as never)({
                 const agentEndTime = Date.now();
                 const agentDuration = agentEndTime - agentStartTime;
                 console.log(
-                  `[MESH] Agent ${idx} (${metadata.provider}/${metadata.modelId}) completed in ${agentDuration}ms`,
+                  `[MESH] Agent ${idx} completed in ${agentDuration}ms (${++completedCount}/${agents.length})`,
+                );
+
+                // Stream immediately as this agent completes (true parallel streaming)
+                controller.enqueue(
+                  textEncoder.encode(encodeAgentStart(metadata)),
+                );
+                controller.enqueue(
+                  textEncoder.encode(`${body}${encodeAgentEnd(idx)}`),
                 );
 
                 return { metadata, body, idx };
               });
 
-              // Use Promise.allSettled to handle all agents concurrently
-              // This ensures all agents run in parallel and we get results as they complete
-              console.log(
-                `[MESH] Waiting for all ${agents.length} agent(s) to complete...`,
-              );
-              const results = await Promise.allSettled(agentPromises);
+              // Wait for all agents to complete
+              await Promise.allSettled(agentPromises);
 
               const totalTime = Date.now() - startTime;
-              const successCount = results.filter(
-                (r) => r.status === "fulfilled",
-              ).length;
-              const failureCount = results.filter(
-                (r) => r.status === "rejected",
-              ).length;
               console.log(
-                `[MESH] All agents completed in ${totalTime}ms (${successCount} succeeded, ${failureCount} failed)`,
+                `[MESH] All ${agents.length} agent(s) completed in ${totalTime}ms`,
               );
-              console.log(
-                `[MESH] Average time per agent: ${(totalTime / agents.length).toFixed(0)}ms (parallel execution)`,
-              );
-              console.log(
-                `[MESH] Time saved vs sequential: ~${((totalTime / agents.length) * (agents.length - 1) - (totalTime - totalTime / agents.length)).toFixed(0)}ms`,
-              );
-
-              // Stream results in order (by agent index) even though they may complete out of order
-              // This maintains UI consistency while benefiting from parallel execution
-              for (let i = 0; i < results.length; i++) {
-                const result = results[i];
-
-                if (result.status === "fulfilled") {
-                  const { metadata, body, idx } = result.value;
-
-                  // Send start marker
-                  controller.enqueue(
-                    textEncoder.encode(encodeAgentStart(metadata)),
-                  );
-
-                  // Send content and end marker
-                  controller.enqueue(
-                    textEncoder.encode(`${body}${encodeAgentEnd(idx)}`),
-                  );
-                } else {
-                  // Handle rejected promises (shouldn't happen as we catch errors above, but defensive)
-                  const idx = i + 1;
-                  const metadata: AgentStreamMetadata = {
-                    index: idx,
-                    provider: agents[i]?.provider ?? "unknown",
-                    modelId: agents[i]?.modelId ?? undefined,
-                  };
-
-                  const errorMessage =
-                    result.reason instanceof Error
-                      ? result.reason.message
-                      : String(result.reason);
-
-                  controller.enqueue(
-                    textEncoder.encode(encodeAgentStart(metadata)),
-                  );
-                  controller.enqueue(
-                    textEncoder.encode(
-                      `Error: ${errorMessage}${encodeAgentEnd(idx)}`,
-                    ),
-                  );
-                }
-              }
 
               controller.close();
             },

@@ -50,7 +50,7 @@ const PANEL_CARD_CLASS =
 interface ChatInputProps {
   onSendMessage?: (
     message: string,
-    agents?: PreparedAgentConfig[]
+    agents?: PreparedAgentConfig[],
   ) => void | Promise<void>;
   disabled?: boolean;
 }
@@ -63,7 +63,7 @@ export default function ChatInput({
   const [settings, setSettings] = useState(() => getSettings());
   const [systemPrompts, setSystemPrompts] = useState<string[]>([]);
   const callAuthenticatedAction = useAuthStore(
-    (state) => state.callAuthenticatedAction
+    (state) => state.callAuthenticatedAction,
   );
   const {
     agentCount,
@@ -80,7 +80,7 @@ export default function ChatInput({
   const selectedChatId = useChatStore((state) => state.selectedChatId);
   const isNewChatMode = useChatStore((state) => state.isNewChatMode);
   const saveAgentConfiguration = useChatStore(
-    (state) => state.saveAgentConfiguration
+    (state) => state.saveAgentConfiguration,
   );
   const lastPersistedSignatureRef = useRef<string>("");
   const [isConfiguratorOpen, setConfiguratorOpen] = useState(false);
@@ -153,7 +153,7 @@ export default function ChatInput({
     const hydrateRemotePrompts = async () => {
       try {
         const prompts = await callAuthenticatedAction<string[]>(
-          api.authActions.getSystemPrompts
+          api.authActions.getSystemPrompts,
         );
 
         if (cancelled) {
@@ -216,7 +216,7 @@ export default function ChatInput({
         preview: prompt,
       })),
     ],
-    [systemPrompts]
+    [systemPrompts],
   );
 
   const resolveSystemPrompt = useCallback(
@@ -230,7 +230,7 @@ export default function ChatInput({
       }
       return "";
     },
-    [systemPrompts]
+    [systemPrompts],
   );
 
   const getModelsForAgent = useCallback(
@@ -243,22 +243,17 @@ export default function ChatInput({
       }
       return [];
     },
-    [openRouterModels, vercelModels]
+    [openRouterModels, vercelModels],
   );
 
   const agentCountOptions = useMemo(
     () => Array.from({ length: MAX_AGENTS }, (_, index) => index + 1),
-    []
+    [],
   );
 
   const currentSystemPromptKey =
     agentConfigs[0]?.systemPromptKey ?? NONE_PROMPT_KEY;
   const currentWebSearch = agentConfigs[0]?.webSearch ?? "none";
-
-  const truncate = useCallback((value: string, max = 48) => {
-    if (!value) return "";
-    return value.length > max ? `${value.slice(0, max)}…` : value;
-  }, []);
 
   const providersSummary: string[] = useMemo(() => {
     if (agentConfigs.length === 0) {
@@ -273,27 +268,6 @@ export default function ChatInput({
       return `${label} ×${count}`;
     });
   }, [agentConfigs]);
-
-  const webSearchLabel = useMemo(() => {
-    if (currentWebSearch === "none") {
-      return "Web search off";
-    }
-    return `Web search: ${currentWebSearch}`;
-  }, [currentWebSearch]);
-
-  const promptPreview = useMemo(() => {
-    const basePrompt = resolveSystemPrompt(currentSystemPromptKey);
-    const override = agentConfigs[0]?.systemPromptOverride ?? "";
-    return override || basePrompt;
-  }, [agentConfigs, currentSystemPromptKey, resolveSystemPrompt]);
-
-  const promptBadgeLabel = useMemo(() => {
-    const prompt = promptPreview.trim();
-    if (!prompt) {
-      return "Prompt: none";
-    }
-    return `Prompt: ${truncate(prompt, 42)}`;
-  }, [promptPreview, truncate]);
 
   const persistAgentConfiguration = useCallback(() => {
     if (!selectedChatId || isNewChatMode) {
@@ -376,7 +350,7 @@ export default function ChatInput({
       }
     });
   }, [
-    agentConfigs.length,
+    agentConfigs,
     currentSystemPromptKey,
     currentWebSearch,
     updateSystemPromptKey,
@@ -395,11 +369,16 @@ export default function ChatInput({
         : false;
 
       if (!hasSelectedModel) {
-        updateModelId(index, models[0]!.id);
+        updateModelId(index, models[0].id);
       }
     });
     setTimeout(persistAgentConfiguration, 0);
-  }, [agentConfigs, getModelsForAgent, updateModelId]);
+  }, [
+    agentConfigs,
+    getModelsForAgent,
+    updateModelId,
+    persistAgentConfiguration,
+  ]);
 
   const handleSend = () => {
     const trimmed = message.trim();
@@ -428,7 +407,7 @@ export default function ChatInput({
   };
 
   return (
-    <div className="space-y-3 p-3">
+    <div className="space-y-2">
       <Sheet
         open={isConfiguratorOpen}
         onOpenChange={(nextOpen) => {
@@ -438,49 +417,28 @@ export default function ChatInput({
           }
         }}
       >
-        <div className="rounded-2xl border border-border/60 bg-card/70 p-4 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                Agent Orchestration
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Badge
-                  variant="outline"
-                  className="rounded-full px-2 py-1 text-[11px]"
-                >
-                  {agentCount} {agentCount === 1 ? "agent" : "agents"}
-                </Badge>
-                {providersSummary.map((provider) => (
-                  <Badge
-                    key={provider}
-                    variant="secondary"
-                    className="rounded-full px-2 py-1 text-[11px] capitalize"
-                  >
-                    {provider}
-                  </Badge>
-                ))}
-                <Badge
-                  variant="outline"
-                  className="rounded-full px-2 py-1 text-[11px]"
-                >
-                  {webSearchLabel}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className="rounded-full px-2 py-1 text-[11px]"
-                >
-                  {promptBadgeLabel}
-                </Badge>
-              </div>
-            </div>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <SlidersHorizontal className="h-4 w-4" />
-                Configure Agents
-              </Button>
-            </SheetTrigger>
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Agents:</span>
+            <Badge variant="outline" className="rounded-md px-2 py-0.5 text-xs">
+              {agentCount}
+            </Badge>
+            {providersSummary.map((provider) => (
+              <Badge
+                key={provider}
+                variant="secondary"
+                className="rounded-md px-2 py-0.5 text-xs capitalize"
+              >
+                {provider}
+              </Badge>
+            ))}
           </div>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-2 h-7 text-xs">
+              <SlidersHorizontal className="h-3 w-3" />
+              Configure
+            </Button>
+          </SheetTrigger>
         </div>
 
         <SheetContent
@@ -498,14 +456,17 @@ export default function ChatInput({
             <div className="space-y-6">
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className={PANEL_LABEL_CLASS}>
+                  <label htmlFor="agent-count" className={PANEL_LABEL_CLASS}>
                     No. of agents
                   </label>
                   <Select
                     value={String(agentCount)}
                     onValueChange={handleAgentCountChange}
                   >
-                    <SelectTrigger className={PANEL_SELECT_TRIGGER_CLASS}>
+                    <SelectTrigger
+                      id="agent-count"
+                      className={PANEL_SELECT_TRIGGER_CLASS}
+                    >
                       <SelectValue placeholder="Choose" />
                     </SelectTrigger>
                     <SelectContent className={PANEL_SELECT_CONTENT_CLASS}>
@@ -519,18 +480,19 @@ export default function ChatInput({
                 </div>
 
                 <div className="space-y-2">
-                  <label className={PANEL_LABEL_CLASS}>
+                  <label htmlFor="web-search" className={PANEL_LABEL_CLASS}>
                     Web search
                   </label>
                   <Select
                     value={currentWebSearch}
                     onValueChange={(value) =>
-                      handleWebSearchChangeAll(
-                        value as "none" | "firecrawl"
-                      )
+                      handleWebSearchChangeAll(value as "none" | "firecrawl")
                     }
                   >
-                    <SelectTrigger className={PANEL_SELECT_TRIGGER_CLASS}>
+                    <SelectTrigger
+                      id="web-search"
+                      className={PANEL_SELECT_TRIGGER_CLASS}
+                    >
                       <SelectValue placeholder="Choose" className="truncate" />
                     </SelectTrigger>
                     <SelectContent className={PANEL_SELECT_CONTENT_CLASS}>
@@ -542,7 +504,7 @@ export default function ChatInput({
               </div>
 
               <div className="space-y-2">
-                <label className={PANEL_LABEL_CLASS}>
+                <label htmlFor="system-prompt" className={PANEL_LABEL_CLASS}>
                   System prompt
                 </label>
                 <Select
@@ -551,7 +513,10 @@ export default function ChatInput({
                     handleSystemPromptChangeAll(value as SystemPromptKey)
                   }
                 >
-                  <SelectTrigger className={PANEL_SELECT_TRIGGER_CLASS}>
+                  <SelectTrigger
+                    id="system-prompt"
+                    className={PANEL_SELECT_TRIGGER_CLASS}
+                  >
                     <SelectValue placeholder="Choose" className="truncate" />
                   </SelectTrigger>
                   <SelectContent className={PANEL_SELECT_CONTENT_CLASS}>
@@ -566,9 +531,14 @@ export default function ChatInput({
                 </Select>
                 {systemPrompts.length > 0 && (
                   <div className="mt-2 space-y-1">
-                    <p className="text-xs text-muted-foreground">Available prompts:</p>
-                    {systemPrompts.map((prompt, index) => (
-                      <div key={index} className="rounded-md bg-muted/50 p-2 text-xs">
+                    <p className="text-xs text-muted-foreground">
+                      Available prompts:
+                    </p>
+                    {systemPrompts.map((prompt) => (
+                      <div
+                        key={prompt}
+                        className="rounded-md bg-muted/50 p-2 text-xs"
+                      >
                         {prompt}
                       </div>
                     ))}
@@ -577,7 +547,8 @@ export default function ChatInput({
               </div>
 
               <div className="space-y-4">
-                {agentConfigs.map((agent, index) => {
+                {agentConfigs.map((agent) => {
+                  const index = agentConfigs.indexOf(agent);
                   const models = getModelsForAgent(agent);
                   const modelValue =
                     agent.modelId &&
@@ -636,7 +607,10 @@ export default function ChatInput({
 
                       <div className="mt-4 grid gap-3 sm:grid-cols-2">
                         <div className="space-y-1.5">
-                          <label className={PANEL_LABEL_CLASS}>
+                          <label
+                            htmlFor={`agent-${index}-provider`}
+                            className={PANEL_LABEL_CLASS}
+                          >
                             Provider
                           </label>
                           <Select
@@ -645,10 +619,14 @@ export default function ChatInput({
                               handleProviderChange(index, value as ProviderType)
                             }
                           >
-                            <SelectTrigger className={PANEL_SELECT_TRIGGER_CLASS}>
+                            <SelectTrigger
+                              className={PANEL_SELECT_TRIGGER_CLASS}
+                            >
                               <SelectValue placeholder="Choose provider" />
                             </SelectTrigger>
-                            <SelectContent className={PANEL_SELECT_CONTENT_CLASS}>
+                            <SelectContent
+                              className={PANEL_SELECT_CONTENT_CLASS}
+                            >
                               <SelectItem value="vercel">Vercel</SelectItem>
                               <SelectItem value="openrouter">
                                 OpenRouter
@@ -659,6 +637,7 @@ export default function ChatInput({
 
                         <div className="space-y-1.5">
                           <label
+                            htmlFor={`agent-${index}-model`}
                             className={`${PANEL_LABEL_CLASS} flex items-center gap-1`}
                           >
                             Model
@@ -675,11 +654,14 @@ export default function ChatInput({
                             }
                           >
                             <SelectTrigger
+                              id={`agent-${index}-model`}
                               className={PANEL_SELECT_TRIGGER_CLASS}
                             >
                               <SelectValue placeholder={modelPlaceholder} />
                             </SelectTrigger>
-                            <SelectContent className={PANEL_SELECT_CONTENT_CLASS}>
+                            <SelectContent
+                              className={PANEL_SELECT_CONTENT_CLASS}
+                            >
                               {models.map((model: Model) => (
                                 <SelectItem key={model.id} value={model.id}>
                                   <span className="block truncate text-sm">
@@ -719,22 +701,22 @@ export default function ChatInput({
       </Sheet>
 
       {/* Message Input */}
-      <div className="flex items-end gap-2 rounded border bg-card p-2">
+      <div className="flex items-end gap-2 px-1">
         <Textarea
           value={message}
           onChange={(event) => setMessage(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Type your message..."
           disabled={disabled}
-          className="min-h-[44px] max-h-44 flex-1 resize-none border-0 bg-transparent p-1.5 text-sm focus-visible:ring-0"
+          className="min-h-[44px] max-h-44 flex-1 resize-none border-0 bg-transparent p-2 text-sm focus-visible:ring-0 placeholder:text-muted-foreground/40"
         />
         <Button
           size="icon"
           onClick={handleSend}
           disabled={disabled || !message.trim()}
-          className="size-8 shrink-0"
+          className="size-9 shrink-0 rounded-full"
         >
-          <Send className="size-3.5" />
+          <Send className="size-4" />
         </Button>
       </div>
     </div>

@@ -18,7 +18,8 @@ export const Route = createFileRoute("/dashboard")({
       },
       {
         name: "description",
-        content: "Access your MeshMind dashboard to manage chats, integrate AI models, and collaborate on projects.",
+        content:
+          "Access your MeshMind dashboard to manage chats, integrate AI models, and collaborate on projects.",
       },
       {
         name: "robots",
@@ -66,7 +67,7 @@ function Dashboard() {
   const selectedChat = useChatStore(
     (state) =>
       state.conversations.find((chat) => chat.id === state.selectedChatId) ??
-      null
+      null,
   );
 
   useEffect(() => {
@@ -99,7 +100,7 @@ function Dashboard() {
             )}
           </div>
           {(isNewChatMode || selectedChat) && (
-            <div className="p-4 md:p-6">
+            <div className="p-4 md:p-6 bg-transparent">
               <div className="max-w-3xl mx-auto">
                 <ChatInput onSendMessage={sendMessage} disabled={isStreaming} />
               </div>

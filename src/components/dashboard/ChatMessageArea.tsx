@@ -1,7 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { ScrollArea } from "../ui/scroll-area";
 import CustomCollapsible from "../CustomCollapsible";
-import PerformanceStats from "./PerformanceStats";
 import type { Chat } from "../../lib/chat-storage";
 import {
   extractMeshAgentSegments,
@@ -86,11 +85,10 @@ export default function ChatMessageArea({
     <ScrollArea className="h-full p-4 md:p-6">
       <div className="space-y-4 max-w-3xl mx-auto">
         {hasMultipleAgents && isStreaming && (
-          <PerformanceStats
-            agentCount={activeAgents.length}
-            isStreaming={isStreaming}
-            className="mb-4"
-          />
+          <div className="flex items-center gap-2 text-xs text-muted-foreground/60 pb-2">
+            <Loader2 className="size-3 animate-spin" />
+            <span>Agents processing in parallel...</span>
+          </div>
         )}
         {displayMessages.map((message) => {
           const textContent = message.parts
@@ -111,31 +109,37 @@ export default function ChatMessageArea({
             hasMultipleAgents &&
             (parsedSegments.length > 0 || isStreamingMessage);
 
+          // Display agents in completion order - whoever finishes first shows first
           const multiAgentSegments: DisplayAgentSegment[] | null =
             shouldUseMultiAgent
-              ? activeAgents.map((agent, idx) => {
-                  const agentIndex = idx + 1;
-                  const existing = parsedSegments.find(
-                    (segment) => segment.agentIndex === agentIndex,
-                  );
+              ? (() => {
+                  // Start with completed segments in order they appear (completion order)
+                  const completed = parsedSegments.map((seg) => ({
+                    ...seg,
+                    isPending: false,
+                  }));
 
-                  if (existing) {
-                    // If we have content, the agent is done regardless of streaming state
-                    return {
-                      ...existing,
-                      isPending: false,
-                    };
+                  if (!isStreamingMessage) {
+                    return completed;
                   }
 
-                  // No existing segment - agent is either pending or running
-                  return {
-                    agentIndex,
-                    provider: agent.provider,
-                    modelId: agent.modelId,
-                    content: "",
-                    isPending: isStreamingMessage,
-                  };
-                })
+                  // Add pending agents that haven't completed yet
+                  const completedIndices = new Set(
+                    parsedSegments.map((s) => s.agentIndex),
+                  );
+                  const pending = activeAgents
+                    .map((agent, idx) => ({
+                      agentIndex: idx + 1,
+                      provider: agent.provider,
+                      modelId: agent.modelId,
+                      content: "",
+                      isPending: true,
+                    }))
+                    .filter((agent) => !completedIndices.has(agent.agentIndex));
+
+                  // Show completed first (in order they finished), then pending
+                  return [...completed, ...pending];
+                })()
               : parsedSegments.length > 0
                 ? parsedSegments.map((seg) => ({ ...seg, isPending: false }))
                 : null;
@@ -147,43 +151,16 @@ export default function ChatMessageArea({
             multiAgentSegments.length > 1
           ) {
             return (
-              <div key={message.id} className="space-y-3">
-                <div className="flex items-center gap-2 px-1">
-                  <div className="h-px flex-1 bg-linear-to-r from-transparent via-border to-transparent" />
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground/70">
-                    {isStreamingMessage
-                      ? "⚡ Parallel Execution"
-                      : "Multi-Agent Response"}
-                  </span>
-                  <div className="h-px flex-1 bg-linear-to-r from-transparent via-border to-transparent" />
-                </div>
+              <div key={message.id} className="space-y-2">
                 {isStreamingMessage && (
-                  <div className="flex items-center justify-center gap-3 py-2 px-4 bg-blue-500/5 rounded-lg border border-blue-500/20">
-                    <Loader2 className="size-4 animate-spin text-blue-400" />
-                    <span className="text-xs text-blue-400 font-medium">
-                      Processing {activeAgents.length} agent(s) in parallel...
-                    </span>
+                  <div className="text-[10px] text-muted-foreground/50 mb-1 px-1">
+                    {parsedSegments.length} of {activeAgents.length} completed
                   </div>
                 )}
                 {multiAgentSegments.map((segment, idx) => {
                   const hasContent = segment.content.trim().length > 0;
                   const isPending = segment.isPending === true;
                   const isComplete = hasContent;
-
-                  // Status: Complete if has content, Running if streaming and no content, Pending if not streaming and no content
-                  const statusLabel = isComplete
-                    ? "✓ Complete"
-                    : isPending
-                      ? "⚡ Running"
-                      : "⋯ Waiting";
-                  const statusClasses = isComplete
-                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                    : isPending
-                      ? "bg-blue-500/10 text-blue-400 border-blue-500/20 animate-pulse"
-                      : "bg-muted text-muted-foreground border-border/50";
-
-                  // Find matching agent config
-                  // Disable interaction when pending or running
                   const canInteract = isComplete;
 
                   return (
@@ -191,79 +168,36 @@ export default function ChatMessageArea({
                       key={`${message.id}-agent-${idx}`}
                       defaultOpen={isComplete}
                       disabled={!canInteract}
-                      className="rounded-2xl border border-border/70 bg-card/70 shadow-xs"
+                      className="rounded-md border border-border/20 bg-card/5 hover:bg-card/10 transition-colors"
                       title={
-                        <div className="flex w-full items-center gap-3 pr-2">
-                          <Avatar className="size-6 shrink-0">
-                            <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">
-                              {segment.agentIndex}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-[11px] font-semibold uppercase tracking-[0.35em]">
-                            Agent {segment.agentIndex}
+                        <div className="flex w-full items-center gap-2">
+                          <span className="text-[11px] font-medium text-foreground/80">
+                            {segment.modelId || `Agent ${segment.agentIndex}`}
                           </span>
-                          <span className="text-xs truncate text-muted-foreground">
-                            {segment.provider === "vercel"
-                              ? "Vercel"
-                              : "OpenRouter"}{" "}
-                            · {segment.modelId}
-                          </span>
-                          <div className="ml-auto flex items-center gap-2">
-                            {isPending && (
-                              <Loader2 className="size-3 animate-spin text-blue-400" />
-                            )}
-                            <span
-                              className={cn(
-                                "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                                statusClasses,
-                              )}
-                            >
-                              {statusLabel}
+                          {isPending && (
+                            <Loader2 className="size-3 ml-auto animate-spin text-primary/40" />
+                          )}
+                          {isComplete && (
+                            <span className="ml-auto text-[10px] text-emerald-500/60">
+                              ✓
                             </span>
-                          </div>
+                          )}
                         </div>
                       }
                     >
-                      <div className="space-y-4">
-                        <div>
-                          {hasContent ? (
-                            <Streamdown
-                              className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed"
-                              isAnimating={isPending}
-                            >
-                              {segment.content}
-                            </Streamdown>
-                          ) : (
-                            <div className="flex items-center gap-2 text-xs py-3">
-                              {isPending ? (
-                                <>
-                                  <div className="flex gap-1">
-                                    <div
-                                      className="size-1.5 rounded-full bg-blue-400 animate-bounce"
-                                      style={{ animationDelay: "0ms" }}
-                                    />
-                                    <div
-                                      className="size-1.5 rounded-full bg-blue-400 animate-bounce"
-                                      style={{ animationDelay: "150ms" }}
-                                    />
-                                    <div
-                                      className="size-1.5 rounded-full bg-blue-400 animate-bounce"
-                                      style={{ animationDelay: "300ms" }}
-                                    />
-                                  </div>
-                                  <span className="text-blue-400 font-medium">
-                                    Processing in parallel...
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="text-muted-foreground/60">
-                                  Waiting for response
-                                </span>
-                              )}
-                            </div>
-                          )}
+                      {hasContent ? (
+                        <Streamdown
+                          className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed prose-headings:text-foreground prose-p:text-foreground/90"
+                          isAnimating={isPending}
+                        >
+                          {segment.content}
+                        </Streamdown>
+                      ) : (
+                        <div className="flex items-center gap-2 text-xs py-3 text-muted-foreground/50">
+                          <Loader2 className="size-3 animate-spin" />
+                          <span>Processing...</span>
                         </div>
-                      </div>
+                      )}
                     </CustomCollapsible>
                   );
                 })}
@@ -289,10 +223,10 @@ export default function ChatMessageArea({
               )}
               <div
                 className={cn(
-                  "rounded-2xl px-4 py-3 max-w-[80%]",
+                  "rounded-lg px-4 py-2.5 max-w-[80%]",
                   message.role === "user"
                     ? "bg-primary text-primary-foreground"
-                    : "bg-muted",
+                    : "bg-muted/20",
                 )}
               >
                 <Streamdown

@@ -51,7 +51,7 @@ export default function CustomCollapsible({
     () =>
       items?.filter((item): item is CustomCollapsibleItem => Boolean(item)) ??
       [],
-    [items]
+    [items],
   );
   const hasRenderableItems = resolvedItems.length > 0;
   const hasChildren = Boolean(children);
@@ -62,38 +62,27 @@ export default function CustomCollapsible({
         onClick={() => !disabled && setIsOpen((prev) => !prev)}
         disabled={disabled}
         className={cn(
-          "w-full py-4 sm:py-5 md:py-6 lg:py-7 flex bg-transparent hover:bg-accent-foreground/10 items-center gap-3 sm:gap-4 md:gap-6 lg:gap-8 group transition-all duration-500 ease-out hover:pl-1 sm:hover:pl-1.5 md:hover:pl-2",
-          disabled && "opacity-50 cursor-not-allowed hover:bg-transparent hover:pl-0"
+          "w-full py-2 px-3 flex bg-transparent hover:bg-accent/5 items-center gap-2 transition-colors",
+          disabled && "opacity-50 cursor-not-allowed hover:bg-transparent",
         )}
       >
-        <span className="text-sm sm:text-base md:text-lg font-light tracking-wide sm:tracking-wider text-foreground whitespace-nowrap transition-all duration-500 group-hover:tracking-wider sm:group-hover:tracking-widest">
-          {title}
-        </span>
-        <div className="relative flex-1 h-px overflow-hidden">
-          <div
-            className={cn(
-              "absolute inset-0 bg-border transition-all duration-700 ease-out",
-              "group-hover:scale-x-105 group-hover:bg-linear-to-r group-hover:from-border group-hover:via-foreground/30 group-hover:to-border"
-            )}
-          />
-        </div>
         <ChevronRight
           className={cn(
-            "h-4 w-4 sm:h-[18px] sm:w-[18px] md:h-5 md:w-5 text-muted-foreground/60 transition-all duration-700 ease-out shrink-0",
-            isOpen && "rotate-90 text-foreground/80",
-            "group-hover:text-foreground group-hover:scale-110"
+            "h-3.5 w-3.5 text-muted-foreground/40 transition-transform shrink-0",
+            isOpen && "rotate-90",
           )}
         />
+        <span className="text-xs font-medium text-foreground/70">{title}</span>
       </Button>
       <div
         className={cn(
-          "grid transition-all duration-700 ease-in-out",
-          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          "grid transition-all duration-300 ease-in-out",
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
         )}
       >
         <div className="overflow-hidden">
           {(hasRenderableItems || hasChildren) && (
-            <div className="pb-6 sm:pb-8 md:pb-10 pr-4 sm:pr-8 md:pr-10 lg:pr-12 pl-1 sm:pl-1.5 md:pl-2 text-muted-foreground/90 text-[13px] sm:text-[14px] md:text-[15px] font-light space-y-4">
+            <div className="pb-3 pl-6 text-sm space-y-3">
               {hasRenderableItems && (
                 <div className="space-y-3">
                   {resolvedItems.map((item) => {
@@ -104,7 +93,7 @@ export default function CustomCollapsible({
                     return (
                       <div
                         key={item.id}
-                        className="rounded-xl border border-border/60 bg-card/60 p-3 sm:p-4 shadow-xs"
+                        className="rounded-md border border-border/30 bg-card/5 p-3"
                       >
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div className="space-y-1">
@@ -123,7 +112,7 @@ export default function CustomCollapsible({
                                 <span
                                   className={cn(
                                     "rounded-full px-2 py-0.5 font-medium uppercase tracking-wider",
-                                    statusStyle
+                                    statusStyle,
                                   )}
                                 >
                                   {item.statusLabel ?? item.status}
